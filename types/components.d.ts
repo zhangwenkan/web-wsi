@@ -9,11 +9,10 @@ export {}
 
 declare module '@vue/runtime-core' {
   export interface GlobalComponents {
-    ElButton: typeof import('element-plus/es')['ElButton']
-    IEpRight: typeof import('~icons/ep/right')['default']
     NavigatorView: typeof import('./../src/components/NavigatorView.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    RulerMeasure: typeof import('./../src/components/RulerMeasure.vue')['default']
     SlideListPanel: typeof import('./../src/components/SlideListPanel.vue')['default']
   }
 }

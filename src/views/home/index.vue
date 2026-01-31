@@ -35,6 +35,14 @@
                      <FullScreen />
                   </ElIcon>
                </button>
+               <button
+                  class="bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 font-medium py-2 px-3 rounded-lg shadow-lg transition duration-200 flex items-center cursor-pointer"
+                  @click="toggleRulerMode"
+               >
+                  <ElIcon :size="20">
+                     <Crop />
+                  </ElIcon>
+               </button>
             </div>
 
             <!-- 缩放控制区域 -->
@@ -118,18 +126,28 @@
          :image-list="imageList"
          :current-index="getCurrentIndex"
       />
+      <RulerMeasure ref="rulerMeasureRef" :viewer="viewer" />
    </div>
 </template>
 
 <script lang="ts" setup>
 import OpenSeadragon from 'openseadragon';
-import { onMounted, onUnmounted, ref, reactive, computed } from 'vue';
+import {
+   onMounted,
+   onUnmounted,
+   ref,
+   reactive,
+   computed,
+   shallowRef,
+} from 'vue';
 import { DndProvider } from 'vue3-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import SlideListPanel from '@/components/SlideListPanel.vue';
 import NavigatorView from '@/components/NavigatorView.vue';
+import RulerMeasure from '@/components/RulerMeasure.vue';
+
 import { ElIcon } from 'element-plus';
-import { Document, Refresh, FullScreen } from '@element-plus/icons-vue';
+import { Document, Refresh, FullScreen, Crop } from '@element-plus/icons-vue';
 
 // 图像列表
 const imageList = reactive([
@@ -262,6 +280,9 @@ let playTimer: any = null;
 let initialZoom = 1; // 记录初始缩放级别
 
 const slideListPanelRef = ref<InstanceType<typeof SlideListPanel> | null>(null);
+const rulerMeasureRef = shallowRef<InstanceType<typeof RulerMeasure> | null>(
+   null
+);
 
 // 响应式变量
 const isPlaying = ref(false);
@@ -550,6 +571,13 @@ const setZoomLevel = (level: number) => {
 // 切换切片列表面板显示/隐藏
 const toggleSlideList = () => {
    slideListVisible.value = !slideListVisible.value;
+};
+
+// 切换测量尺模式
+const toggleRulerMode = () => {
+   if (rulerMeasureRef.value) {
+      rulerMeasureRef.value.toggleRulerMode();
+   }
 };
 
 // 复位切片列表
