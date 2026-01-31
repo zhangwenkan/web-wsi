@@ -1,7 +1,3 @@
-<template>
-   <div class="ruler-overlay"></div>
-</template>
-
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import OpenSeadragon from 'openseadragon';
@@ -24,6 +20,7 @@ const rulerMeasurements = ref<any[]>([]);
 const pixelPerMicron = ref<number>(0.46);
 const rulerLineColor = ref<string>('#FF0000'); // 红色
 const rulerTextColor = ref<string>('#FF0000'); // 红色
+const isAltPressed = ref<boolean>(false);
 
 // OpenSeadragon 事件处理器引用
 let _osdRulerAnimationHandler: any = null;
@@ -195,6 +192,19 @@ const unbindRulerEvents = () => {
 const handleRulerMouseDown = (e: MouseEvent) => {
    if (!isRulerMode.value || e.button !== 0) return; // 只处理左键
 
+   // 检查是否按下了Alt键
+   if (e.altKey) {
+      isAltPressed.value = true;
+      // 启用临时导航模式（缩放和平移）
+      props.viewer.setMouseNavEnabled(true);
+      // 让OpenSeadragon处理这个事件
+      return;
+   } else {
+      isAltPressed.value = false;
+      // 禁用导航，准备绘线
+      props.viewer.setMouseNavEnabled(false);
+   }
+
    const rect = props.viewer.canvas.getBoundingClientRect();
    const x = e.clientX - rect.left;
    const y = e.clientY - rect.top;
@@ -213,7 +223,29 @@ const handleRulerMouseDown = (e: MouseEvent) => {
 
 // 处理鼠标移动事件
 const handleRulerMouseMove = (e: MouseEvent) => {
-   if (!isRulerMode.value || !isDrawingRuler.value) return;
+   if (!isRulerMode.value) return;
+
+   // 如果按住了Alt键，启用导航模式
+   if (e.altKey) {
+      if (!isAltPressed.value) {
+         isAltPressed.value = true;
+         props.viewer.setMouseNavEnabled(true);
+      }
+      // 如果正在绘线，停止绘线
+      if (isDrawingRuler.value) {
+         isDrawingRuler.value = false;
+         updateRulerCanvas();
+      }
+      return; // 让OpenSeadragon处理移动事件
+   } else {
+      // 如果松开了Alt键，且之前是在绘线过程中
+      if (isAltPressed.value && isDrawingRuler.value) {
+         isAltPressed.value = false;
+         props.viewer.setMouseNavEnabled(false);
+      }
+   }
+
+   if (!isDrawingRuler.value) return;
 
    const rect = props.viewer.canvas.getBoundingClientRect();
    const x = e.clientX - rect.left;
@@ -264,6 +296,18 @@ const handleRulerMouseUp = (e: MouseEvent) => {
    rulerStartPoint.value = null;
    rulerEndPoint.value = null;
    updateRulerCanvas();
+
+   // 检查Alt键状态，决定是否启用导航模式
+   if (e.altKey) {
+      isAltPressed.value = true;
+      props.viewer.setMouseNavEnabled(true);
+   } else {
+      isAltPressed.value = false;
+      // 如果不在Alt模式下，且仍在测量模式中，保持绘线模式
+      if (isRulerMode.value && !isAltPressed.value) {
+         props.viewer.setMouseNavEnabled(false);
+      }
+   }
 };
 
 // 开始尺子测量模式
@@ -272,6 +316,8 @@ const startRulerMode = () => {
    setViewerCursor('crosshair');
    // 禁用鼠标导航
    props.viewer.setMouseNavEnabled(false);
+   // 重置Alt键状态
+   isAltPressed.value = false;
    // 屏蔽标注事件（如果存在）
    // 由于 __vue__ 属性不是标准类型，这里使用类型断言或暂时跳过
    try {
@@ -347,6 +393,9 @@ const stopRulerMode = () => {
    // 清除所有测量线
    clearAllMeasurements();
 
+   // 重置Alt键状态
+   isAltPressed.value = false;
+
    // 确保恢复鼠标导航
    if (props.viewer) {
       props.viewer.setMouseNavEnabled(true);
@@ -395,11 +444,39 @@ watch(
 onMounted(() => {
    // 如果有store中的分辨率信息，可以在这里设置
    // pixelPerMicron.value = store.state.filmViewer.resolution;
+
+   // 添加键盘事件监听器来跟踪Alt键状态
+   window.addEventListener('keydown', handleKeyDown);
+   window.addEventListener('keyup', handleKeyUp);
 });
+
+// 键盘按下事件处理
+const handleKeyDown = (e: KeyboardEvent) => {
+   if (e.altKey && isRulerMode.value && !isAltPressed.value) {
+      isAltPressed.value = true;
+      // 启用导航模式（缩放和平移）
+      props.viewer.setMouseNavEnabled(true);
+   }
+};
+
+// 键盘释放事件处理
+const handleKeyUp = (e: KeyboardEvent) => {
+   if (!e.altKey && isAltPressed.value && isRulerMode.value) {
+      isAltPressed.value = false;
+      // 禁用导航，回到绘线模式
+      if (isRulerMode.value) {
+         props.viewer.setMouseNavEnabled(false);
+      }
+   }
+};
 
 // 组件卸载前清理
 onUnmounted(() => {
    console.log('rulerMeasure组件即将销毁，清理资源');
+
+   // 移除键盘事件监听器
+   window.removeEventListener('keydown', handleKeyDown);
+   window.removeEventListener('keyup', handleKeyUp);
 
    // 如果还在测量模式，先停止
    if (isRulerMode.value) {
