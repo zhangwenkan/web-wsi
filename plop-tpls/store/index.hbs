@@ -1,0 +1,28 @@
+import { defineStore } from 'pinia';
+import pinia from '@/store';
+import { {{ properCase storeName }}State } from './types';
+
+export const use{{ properCase storeName }}Store = defineStore(
+'{{ properCase storeName }}',
+  {
+    state: () => ({
+      info: ''
+    }),
+    getters: {},
+    actions: {
+    updateInfo(partial: Partial<{{ properCase storeName }}State>) {
+      this.$patch(partial);
+      },
+    },
+    persist: {
+      key: 'info',
+      storage: sessionStorage,
+      paths: ['info'],
+    },
+  }
+);
+
+
+export function use{{ properCase storeName }}StoreHook() {
+  return use{{ properCase storeName }}Store(pinia);
+}

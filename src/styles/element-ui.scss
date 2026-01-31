@@ -1,0 +1,20 @@
+// 变更部分el变量 配置主题色
+:root {
+   --el-fill-color-blank: var(--wsi-backgroud-color);
+   --el-text-color-primary: var(--wsi-color-dark-black);
+   --el-bg-color: var(--wsi-backgroud-color);
+}
+
+// 修改 el-button--primary 主题色
+.el-button--primary {
+   --el-color-primary: var(--wsi-color-main);
+}
+.el-button--primary:hover,
+.el-button--primary:focus {
+   --el-button-hover-border-color: var(--wsi-color-main-light-1);
+   --el-button-hover-bg-color: var(--wsi-color-main-light-1);
+}
+.el-button--primary:active {
+   --el-button-active-border-color: var(--wsi-color-main);
+   --el-button-active-bg-color: var(--wsi-color-main);
+}

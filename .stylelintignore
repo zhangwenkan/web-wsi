@@ -1,0 +1,16 @@
+node_modules
+dist
+
+.vscode
+.idea
+
+.husky
+build
+mock
+plop-templates
+public
+src/api
+src/hooks
+src/router
+src/store
+types
