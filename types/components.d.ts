@@ -13,6 +13,7 @@ declare module '@vue/runtime-core' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     RulerMeasure: typeof import('./../src/components/RulerMeasure.vue')['default']
+    ScaleBar: typeof import('./../src/components/ScaleBar.vue')['default']
     SlideListPanel: typeof import('./../src/components/SlideListPanel.vue')['default']
   }
 }

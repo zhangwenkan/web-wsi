@@ -127,6 +127,12 @@
          :current-index="getCurrentIndex"
       />
       <RulerMeasure ref="rulerMeasureRef" :viewer="viewer" />
+      <ScaleBar
+         :rate="String(imageInfo.baseInfo.rate)"
+         :calibration="String(imageInfo.baseInfo.calibration)"
+         :tile-source-params="{ width: imageInfo.baseInfo.width }"
+         :viewer="() => viewer"
+      />
    </div>
 </template>
 
@@ -145,6 +151,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import SlideListPanel from '@/components/SlideListPanel.vue';
 import NavigatorView from '@/components/NavigatorView.vue';
 import RulerMeasure from '@/components/RulerMeasure.vue';
+import ScaleBar from '@/components/ScaleBar.vue';
 
 import { ElIcon } from 'element-plus';
 import { Document, Refresh, FullScreen, Crop } from '@element-plus/icons-vue';
