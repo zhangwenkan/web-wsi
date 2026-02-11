@@ -161,10 +161,12 @@ const clearAllMeasurements = () => {
 
 // 绑定测量事件监听器
 const bindRulerEvents = () => {
-   const canvas = props.viewer.canvas;
-   canvas.addEventListener('mousedown', handleRulerMouseDown);
-   canvas.addEventListener('mousemove', handleRulerMouseMove);
-   canvas.addEventListener('mouseup', handleRulerMouseUp);
+   if (props.viewer) {
+      const canvas = props.viewer.canvas;
+      canvas.addEventListener('mousedown', handleRulerMouseDown);
+      canvas.addEventListener('mousemove', handleRulerMouseMove);
+      canvas.addEventListener('mouseup', handleRulerMouseUp);
+   }
 };
 
 // 解绑测量事件监听器
@@ -315,23 +317,11 @@ const startRulerMode = () => {
    // 设置鼠标样式
    setViewerCursor('crosshair');
    // 禁用鼠标导航
-   props.viewer.setMouseNavEnabled(false);
+   if (props.viewer) {
+      props.viewer.setMouseNavEnabled(false);
+   }
    // 重置Alt键状态
    isAltPressed.value = false;
-   // 屏蔽标注事件（如果存在）
-   // 由于 __vue__ 属性不是标准类型，这里使用类型断言或暂时跳过
-   try {
-      const parentNode: any = props.viewer.container.parentNode;
-      if (parentNode.__vue__) {
-         const parentComponent = parentNode.__vue__;
-         if (parentComponent && parentComponent.annotationEditor) {
-            parentComponent.annotationEditor.disableAnnotationEvents();
-            console.log('已屏蔽标注事件');
-         }
-      }
-   } catch (e) {
-      console.warn('无法访问父组件的标注编辑器:', e);
-   }
    // 绑定事件监听器
    bindRulerEvents();
    console.log('进入测量模式');
@@ -346,20 +336,6 @@ const stopRulerMode = () => {
 
    // 恢复鼠标导航
    props.viewer.setMouseNavEnabled(true);
-
-   // 恢复标注事件（如果存在）
-   try {
-      const parentNode: any = props.viewer.container.parentNode;
-      if (parentNode.__vue__) {
-         const parentComponent = parentNode.__vue__;
-         if (parentComponent && parentComponent.annotationEditor) {
-            parentComponent.annotationEditor.enableAnnotationEvents();
-            console.log('已恢复标注事件');
-         }
-      }
-   } catch (e) {
-      console.warn('无法访问父组件的标注编辑器:', e);
-   }
 
    // 移除事件监听器
    unbindRulerEvents();
@@ -499,6 +475,7 @@ const emit = defineEmits(['ruler-mode-change']);
 defineExpose({
    toggleRulerMode,
    hiddenRuler,
+   isRulerMode,
 });
 </script>
 
