@@ -24,7 +24,7 @@
                }}</span>
             </div>
             <div class="header-right">
-               <ElIcon class="close-icon" :size="18" @click="handleCancel">
+               <ElIcon class="close-icon" :size="18" @click="handleClose">
                   <Close />
                </ElIcon>
             </div>
@@ -72,10 +72,6 @@
             >
                删除
             </ElButton>
-            <ElButton size="small" @click="handleCancel">取消</ElButton>
-            <ElButton size="small" type="primary" @click="handleConfirm">
-               确定
-            </ElButton>
          </div>
       </div>
    </teleport>
@@ -84,7 +80,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Close } from '@element-plus/icons-vue';
-import type { Annotation, PopupParams } from '@/types/annotation';
+import type { PopupParams } from '@/types/annotation';
 
 // Props
 interface Props {
@@ -99,8 +95,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 // Emits
 const emit = defineEmits<{
-   (e: 'ok', annotation: Annotation): void;
-   (e: 'cancel'): void;
+   (e: 'close'): void;
    (e: 'delete', id: string): void;
 }>();
 
@@ -147,7 +142,9 @@ const getPropertyLabel = (key: string) => {
    return labelMap[key] || key;
 };
 
-const formatPropertyValue = (key: string, value: number) => {
+const formatPropertyValue = (key: string, value: number | undefined) => {
+   if (value === undefined) return '-';
+
    // 将像素转换为微米（假设比例因子，实际应根据图像分辨率调整）
    const pixelToMicron = 0.46; // 默认比例因子
    const microns = value * pixelToMicron;
@@ -203,17 +200,8 @@ const stopDrag = () => {
 };
 
 // 事件处理
-const handleConfirm = () => {
-   if (annotation.value) {
-      emit('ok', {
-         ...annotation.value,
-         info: info.value,
-      });
-   }
-};
-
-const handleCancel = () => {
-   emit('cancel');
+const handleClose = () => {
+   emit('close');
 };
 
 const handleDelete = () => {

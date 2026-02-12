@@ -144,8 +144,10 @@
          :visible="annotationVisible"
          @shape-select="handleShapeSelect"
          @annotation-select="handleAnnotationSelect"
-         @annotation-edit="handleAnnotationEdit"
-         @annotation-delete="handleAnnotationDelete"
+         @annotation-move-start="handleAnnotationMoveStart"
+         @annotation-move-save="handleAnnotationMoveSave"
+         @annotation-move-cancel="handleAnnotationMoveCancel"
+         @annotation-color-change="handleAnnotationColorChange"
          @close="annotationVisible = false"
       />
 
@@ -153,8 +155,7 @@
       <AnnotationPopup
          :visible="annotationPopupVisible"
          :params="annotationPopupParams"
-         @ok="handlePopupOk"
-         @cancel="handlePopupCancel"
+         @close="annotationPopupVisible = false"
          @delete="handlePopupDelete"
       />
 
@@ -195,7 +196,7 @@ import {
 } from '@element-plus/icons-vue';
 import AnnotationPanel from '@/components/AnnotationPanel.vue';
 import AnnotationPopup from '@/components/AnnotationPopup.vue';
-import { AnnotationEditor } from '@/utils/AnnotationEditor';
+import { CanvasAnnotationEditor } from '@/utils/CanvasAnnotationEditor';
 import { useAnnotationStore } from '@/store/modules/annotation';
 
 // 图像列表
@@ -327,8 +328,8 @@ const imageInfo = reactive({
 const viewer = shallowRef<any>(null);
 let playTimer: any = null;
 let initialZoom = 1; // 记录初始缩放级别
-let svgOverlay: SVGSVGElement | null = null; // SVG 覆盖层
-let annotationEditor: AnnotationEditor | null = null; // 标注编辑器实例
+let canvasOverlay: HTMLCanvasElement | null = null; // Canvas 覆盖层
+let annotationEditor: CanvasAnnotationEditor | null = null; // 标注编辑器实例
 
 const slideListPanelRef = ref<InstanceType<typeof SlideListPanel> | null>(null);
 const rulerMeasureRef = shallowRef<InstanceType<typeof RulerMeasure> | null>(
@@ -388,20 +389,17 @@ const getCurrentIndex = computed(() => {
 
 // 初始化标注功能
 const initAnnotation = () => {
-   // 创建 SVG overlay
-   if (!svgOverlay) {
-      svgOverlay = document.createElementNS(
-         'http://www.w3.org/2000/svg',
-         'svg'
-      );
-      svgOverlay.setAttribute('id', 'annotation-svg');
-      svgOverlay.style.position = 'absolute';
-      svgOverlay.style.top = '0';
-      svgOverlay.style.left = '0';
-      svgOverlay.style.width = '100%';
-      svgOverlay.style.height = '100%';
-      svgOverlay.style.pointerEvents = 'none';
-      svgOverlay.style.overflow = 'visible';
+   // 创建 Canvas overlay
+   if (!canvasOverlay) {
+      canvasOverlay = document.createElement('canvas');
+      canvasOverlay.setAttribute('id', 'annotation-canvas');
+      canvasOverlay.style.position = 'absolute';
+      canvasOverlay.style.top = '0';
+      canvasOverlay.style.left = '0';
+      canvasOverlay.style.width = '100%';
+      canvasOverlay.style.height = '100%';
+      canvasOverlay.style.pointerEvents = 'none';
+      canvasOverlay.style.overflow = 'visible';
 
       // 尝试多个方式找到正确的容器
       const viewerContainer = document.getElementById('openseadragon1');
@@ -409,26 +407,26 @@ const initAnnotation = () => {
 
       if (osdCanvas) {
          // 方法 1：添加到 canvas 的父节点
-         osdCanvas.parentNode?.appendChild(svgOverlay);
+         osdCanvas.parentNode?.appendChild(canvasOverlay);
       } else if (viewerContainer) {
          // 方法 2：直接添加到 viewer 容器
-         viewerContainer.appendChild(svgOverlay);
+         viewerContainer.appendChild(canvasOverlay);
       } else {
-         console.error('无法找到合适的容器添加 SVG overlay');
+         console.error('无法找到合适的容器添加 Canvas overlay');
          return;
       }
    }
 
-   // 初始化 AnnotationEditor
+   // 初始化 CanvasAnnotationEditor
    const viewerContainer = document.getElementById('openseadragon1');
-   if (svgOverlay && viewerContainer && viewer.value) {
+   if (canvasOverlay && viewerContainer && viewer.value) {
       // 销毁旧的实例
       if (annotationEditor) {
          annotationEditor.destroy();
       }
 
-      annotationEditor = new AnnotationEditor();
-      annotationEditor.init(svgOverlay, viewer.value, viewerContainer, {
+      annotationEditor = new CanvasAnnotationEditor();
+      annotationEditor.init(canvasOverlay, viewer.value, viewerContainer, {
          allowMulti: annotationStore.isMultiMode,
          onEdit: (annotations) => {
             // 标注更新时的回调
@@ -824,34 +822,34 @@ const handleAnnotationSelect = (annotation: any) => {
    }
 };
 
-const handleAnnotationEdit = (annotation: any) => {
-   // 重新显示弹窗进行编辑
-   // TODO: 计算标注属性
-   annotationPopupParams.value = {
-      type: annotation.type,
-      color: annotation.color,
-      annotation,
-   };
-   annotationPopupVisible.value = true;
+const handleAnnotationMoveStart = (annotation: any) => {
+   // 进入标注移动模式
+   if (annotationEditor && annotation) {
+      // 关闭标注信息弹窗
+      annotationPopupVisible.value = false;
+      annotationEditor.startMoveAnnotation(annotation.id);
+   }
 };
 
-const handleAnnotationDelete = (id: string) => {
+const handleAnnotationMoveSave = (annotation: any) => {
+   // 保存标注移动
+   if (annotationEditor && annotation) {
+      annotationEditor.saveMoveAnnotation();
+   }
+};
+
+const handleAnnotationMoveCancel = () => {
+   // 取消标注移动
    if (annotationEditor) {
-      annotationEditor.deleteAnnotation(id);
+      annotationEditor.cancelMoveAnnotation();
    }
 };
 
-const handlePopupOk = (params: any) => {
-   if (annotationEditor && annotationPopupParams.value?.annotation) {
-      const annotation = annotationPopupParams.value.annotation;
-      annotation.info = params.info;
-      annotationEditor.updateAnnotation(annotation);
+const handleAnnotationColorChange = () => {
+   // 标注颜色改变，重新渲染
+   if (annotationEditor) {
+      annotationEditor.render();
    }
-   annotationPopupVisible.value = false;
-};
-
-const handlePopupCancel = () => {
-   annotationPopupVisible.value = false;
 };
 
 const handlePopupDelete = () => {
@@ -934,9 +932,9 @@ onUnmounted(() => {
       annotationEditor = null;
    }
 
-   if (svgOverlay && svgOverlay.parentNode) {
-      svgOverlay.parentNode.removeChild(svgOverlay);
-      svgOverlay = null;
+   if (canvasOverlay && canvasOverlay.parentNode) {
+      canvasOverlay.parentNode.removeChild(canvasOverlay);
+      canvasOverlay = null;
    }
 
    if (playTimer) {

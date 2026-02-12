@@ -126,26 +126,95 @@
                               :style="{ backgroundColor: annotation.color }"
                            ></div>
                         </div>
-                        <div v-if="annotation.info" class="annotation-content">
+
+                        <!-- 备注显示区域 -->
+                        <div
+                           v-if="
+                              annotation.info &&
+                              annotation.info !== '' &&
+                              (!editingIndex || editingIndex !== index)
+                           "
+                           class="annotation-content"
+                        >
                            {{ annotation.info }}
                         </div>
-                        <!-- 编辑操作按钮（选中时显示） -->
+
+                        <!-- 备注编辑区域 -->
                         <div
-                           v-if="selectedAnnotationIndex === index"
+                           v-if="editingIndex === index"
+                           class="annotation-content editing"
+                        >
+                           <ElInput
+                              v-model="editingInfo"
+                              type="textarea"
+                              :rows="2"
+                              placeholder="请输入备注"
+                              maxlength="50"
+                              show-word-limit
+                              @click.stop
+                           />
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <div
+                           v-if="
+                              selectedAnnotationIndex === index &&
+                              editingIndex !== index
+                           "
                            class="annotation-actions"
                         >
-                           <ElIcon
-                              class="action-icon"
-                              @click.stop="handleEdit(annotation)"
+                           <span
+                              class="edit-text"
+                              @click.stop="handleStartMove(annotation, index)"
                            >
-                              <Edit />
-                           </ElIcon>
-                           <ElIcon
-                              class="action-icon delete"
-                              @click.stop="handleDelete(annotation)"
+                              编辑
+                           </span>
+                           <span
+                              class="edit-text"
+                              @click.stop="handleStartEdit(annotation, index)"
                            >
-                              <Delete />
-                           </ElIcon>
+                              备注
+                           </span>
+                        </div>
+
+                        <!-- 保存和取消按钮（编辑时显示） -->
+                        <div
+                           v-if="editingIndex === index"
+                           class="annotation-actions editing-actions"
+                        >
+                           <ElButton
+                              size="small"
+                              @click.stop="handleCancelEdit"
+                           >
+                              取消
+                           </ElButton>
+                           <ElButton
+                              size="small"
+                              type="primary"
+                              @click.stop="handleSaveEdit(annotation)"
+                           >
+                              保存
+                           </ElButton>
+                        </div>
+
+                        <!-- 保存和取消按钮（移动时显示） -->
+                        <div
+                           v-if="movingIndex === index"
+                           class="annotation-actions editing-actions"
+                        >
+                           <ElButton
+                              size="small"
+                              @click.stop="handleCancelMove"
+                           >
+                              取消
+                           </ElButton>
+                           <ElButton
+                              size="small"
+                              type="primary"
+                              @click.stop="handleSaveMove(annotation)"
+                           >
+                              保存
+                           </ElButton>
                         </div>
                      </div>
                   </div>
@@ -158,7 +227,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { Close, Edit, Delete } from '@element-plus/icons-vue';
+import { Close } from '@element-plus/icons-vue';
+import { ElInput, ElButton, ElMessage } from 'element-plus';
 import { useAnnotationStore } from '@/store/modules/annotation';
 import type {
    Annotation,
@@ -179,8 +249,10 @@ const emit = defineEmits<{
    (e: 'close'): void;
    (e: 'shape-select', type: AnnotationType): void;
    (e: 'annotation-select', annotation: Annotation): void;
-   (e: 'annotation-edit', annotation: Annotation): void;
-   (e: 'annotation-delete', id: string): void;
+   (e: 'annotation-move-start', annotation: Annotation): void;
+   (e: 'annotation-move-save', annotation: Annotation): void;
+   (e: 'annotation-move-cancel'): void;
+   (e: 'annotation-color-change'): void;
 }>();
 
 // Store
@@ -191,6 +263,11 @@ const selectedShapeIndex = ref<number | null>(null);
 const selectedColorIndex = ref<number | null>(0);
 const customColor = ref<string>('#ff0000');
 const squareSize = ref<number>(256);
+
+// 编辑状态
+const editingIndex = ref<number | null>(null);
+const editingInfo = ref<string>('');
+const movingIndex = ref<number | null>(null);
 
 // 计算属性
 const annotations = computed(() => annotationStore.annotations);
@@ -210,6 +287,11 @@ const isMultiMode = computed({
 });
 
 const selectedAnnotationIndex = computed(() => annotationStore.selectedIndex);
+
+// 是否正在编辑（备注或移动）
+const isEditing = computed(() => {
+   return editingIndex.value !== null || movingIndex.value !== null;
+});
 
 // 颜色列表
 const colors = computed((): ColorOption[] => {
@@ -240,6 +322,12 @@ const getAnnotationTypeLabel = (type: AnnotationType) => {
 };
 
 const handleShapeClick = (shape: ShapeOption, index: number) => {
+   // 如果正在编辑某个标注（备注或移动），阻止操作
+   if (isEditing.value) {
+      ElMessage.warning('标注编辑尚未完成，请勿进行其他操作！');
+      return;
+   }
+
    if (selectedShapeIndex.value === index) {
       // 取消选择
       selectedShapeIndex.value = null;
@@ -264,26 +352,69 @@ const handleColorClick = (color: ColorOption, index: number) => {
 
    if (color.color !== 'custom') {
       annotationStore.setCurrentColor(color.color);
+
+      // 仅在移动标注模式下，更新选中标注的颜色
+      if (
+         movingIndex.value !== null &&
+         selectedAnnotationIndex.value !== null
+      ) {
+         const annotation =
+            annotationStore.annotations[selectedAnnotationIndex.value];
+         if (annotation) {
+            annotation.color = color.color;
+            emit('annotation-color-change');
+         }
+      }
    }
    // 自定义颜色的处理由颜色选择器通过 @active-change 事件处理
 };
 
 const handleCustomColorChange = (color: string) => {
    annotationStore.setCurrentColor(color);
+
+   // 仅在移动标注模式下，更新选中标注的颜色
+   if (movingIndex.value !== null && selectedAnnotationIndex.value !== null) {
+      const annotation =
+         annotationStore.annotations[selectedAnnotationIndex.value];
+      if (annotation) {
+         annotation.color = color;
+         emit('annotation-color-change');
+      }
+   }
 };
 
 const handleCustomColorActiveChange = (color: string) => {
    // 颜色选择器打开时，自动应用选中的颜色
    annotationStore.setCurrentColor(color);
    selectedColorIndex.value = colors.value.length - 1; // 选中自定义颜色
+
+   // 仅在移动标注模式下，更新选中标注的颜色
+   if (movingIndex.value !== null && selectedAnnotationIndex.value !== null) {
+      const annotation =
+         annotationStore.annotations[selectedAnnotationIndex.value];
+      if (annotation) {
+         annotation.color = color;
+         emit('annotation-color-change');
+      }
+   }
 };
 
 const handleSquareSizeChange = (value: number) => {
+   // 如果正在编辑某个标注（备注或移动），阻止操作
+   if (isEditing.value) {
+      ElMessage.warning('标注编辑尚未完成，请勿进行其他操作！');
+      return;
+   }
    annotationStore.setSquareSize(value);
    emit('shape-select', 'square'); // 重新设置以应用新尺寸
 };
 
 const handleMultiModeChange = (value: boolean) => {
+   // 如果正在编辑某个标注（备注或移动），阻止操作
+   if (isEditing.value) {
+      ElMessage.warning('标注编辑尚未完成，请勿进行其他操作！');
+      return;
+   }
    // 如果取消连续标注模式，重置选中的图形
    if (!value) {
       selectedShapeIndex.value = null;
@@ -292,16 +423,67 @@ const handleMultiModeChange = (value: boolean) => {
 };
 
 const handleAnnotationClick = (annotation: Annotation, index: number) => {
+   // 检查是否正在编辑某个标注
+   if (isEditing.value) {
+      ElMessage.warning('标注编辑尚未完成，请勿进行其他操作！');
+      return;
+   }
+
+   // 选中标注
    annotationStore.setSelectedIndex(index);
    emit('annotation-select', annotation);
 };
 
-const handleEdit = (annotation: Annotation) => {
-   emit('annotation-edit', annotation);
+const handleStartMove = (annotation: Annotation, index: number) => {
+   // 如果正在编辑某个标注（备注或移动），阻止操作
+   if (isEditing.value) {
+      ElMessage.warning('标注编辑尚未完成，请勿进行其他操作！');
+      return;
+   }
+
+   // 开始移动标注
+   movingIndex.value = index;
+   emit('annotation-move-start', annotation);
 };
 
-const handleDelete = (annotation: Annotation) => {
-   emit('annotation-delete', annotation.id);
+const handleStartEdit = (annotation: Annotation, index: number) => {
+   // 如果正在编辑某个标注（备注或移动），阻止操作
+   if (isEditing.value) {
+      ElMessage.warning('标注编辑尚未完成，请勿进行其他操作！');
+      return;
+   }
+
+   // 开始编辑备注
+   editingIndex.value = index;
+   editingInfo.value = annotation.info || '';
+};
+
+const handleSaveEdit = (annotation: Annotation) => {
+   // 更新标注的备注信息
+   annotation.info = editingInfo.value;
+   // 更新 store 中的标注数据
+   const index = annotationStore.annotations.findIndex(
+      (a) => a.id === annotation.id
+   );
+   if (index !== -1) {
+      annotationStore.annotations[index].info = editingInfo.value;
+   }
+   editingIndex.value = null;
+};
+
+const handleCancelEdit = () => {
+   editingIndex.value = null;
+   editingInfo.value = '';
+};
+
+const handleSaveMove = (annotation: Annotation) => {
+   emit('annotation-move-save', annotation);
+   movingIndex.value = null;
+};
+
+const handleCancelMove = () => {
+   emit('annotation-move-cancel');
+   movingIndex.value = null;
 };
 
 const handleClose = () => {
@@ -574,23 +756,26 @@ watch(
    word-break: break-all;
    background-color: #ffffff;
    border-radius: 4px;
+   &.editing {
+      padding: 0;
+      margin-bottom: 8px;
+   }
 }
 .annotation-actions {
    display: flex;
    gap: 8px;
    justify-content: flex-end;
-}
-.action-icon {
-   color: #909399;
-   cursor: pointer;
-   transition: color 0.2s;
-   &:hover {
-      color: #409eff;
+   &.editing-actions {
+      margin-top: 8px;
    }
-   &.delete {
-      &:hover {
-         color: #f56c6c;
-      }
+}
+.edit-text {
+   font-size: 12px;
+   color: #409eff;
+   cursor: pointer;
+   transition: opacity 0.2s;
+   &:hover {
+      opacity: 0.8;
    }
 }
 
