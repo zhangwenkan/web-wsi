@@ -88,6 +88,7 @@ export class CanvasAnnotationEditor {
    private handleDoubleClickBound: any = null;
    private handleKeyDownBound: any = null;
    private handleWheelBound: any = null;
+   private handleViewerMouseMoveBound: any = null;
    private renderHandler: any = null;
 
    // 渲染请求标志（用于节流）
@@ -131,6 +132,7 @@ export class CanvasAnnotationEditor {
       this.handleDoubleClickBound = this.handleDoubleClick.bind(this);
       this.handleKeyDownBound = this.handleKeyDown.bind(this);
       this.handleWheelBound = this.handleWheel.bind(this);
+      this.handleViewerMouseMoveBound = this.handleViewerMouseMove.bind(this);
 
       // 绑定 OpenSeadragon 事件
       this.viewer.addHandler('animation', this.renderHandler);
@@ -146,15 +148,21 @@ export class CanvasAnnotationEditor {
          passive: false,
       });
 
+      // 绑定 viewerContainer 的鼠标移动事件，用于检测鼠标是否在标注上方
+      this.viewerContainer.addEventListener(
+         'mousemove',
+         this.handleViewerMouseMoveBound
+      );
+
       // 绑定键盘事件（用于 ESC 取消绘制）
       document.addEventListener('keydown', this.handleKeyDownBound);
 
       // 初始化 Canvas 大小
       this.resizeCanvas();
 
-      // 初始化 pointerEvents 为 auto，允许点击标注
-      // 在事件处理中，如果没有点击到标注，会将事件转发给 OpenSeadragon
-      this.canvas.style.pointerEvents = 'auto';
+      // 初始化 pointerEvents 为 none，让鼠标事件穿透到 OpenSeadragon
+      // 只在需要时（绘制模式或鼠标在标注上方）设置为 auto
+      this.canvas.style.pointerEvents = 'none';
 
       // 初始渲染
       this.render();
@@ -187,6 +195,14 @@ export class CanvasAnnotationEditor {
             this.handleDoubleClickBound
          );
          this.canvas.removeEventListener('wheel', this.handleWheelBound);
+      }
+
+      // 解绑 viewerContainer 的鼠标移动事件
+      if (this.viewerContainer) {
+         this.viewerContainer.removeEventListener(
+            'mousemove',
+            this.handleViewerMouseMoveBound
+         );
       }
 
       // 解绑键盘事件
@@ -487,10 +503,10 @@ export class CanvasAnnotationEditor {
       this.setViewPortEnable();
       this.setCursor('default');
 
-      // 保持 pointerEvents 为 auto，允许点击标注
-      // 在事件处理中，如果没有点击到标注，会将事件转发给 OpenSeadragon
+      // 设置 pointerEvents 为 none，让 OpenSeadragon 可以响应鼠标事件
+      // handleViewerMouseMove 会动态检测鼠标是否在标注上方并切换 pointerEvents
       if (this.canvas) {
-         this.canvas.style.pointerEvents = 'auto';
+         this.canvas.style.pointerEvents = 'none';
       }
 
       // 清理临时变量
@@ -544,8 +560,8 @@ export class CanvasAnnotationEditor {
          this.canvas.addEventListener('mousedown', this.handleMouseDownBound);
          this.canvas.addEventListener('mousemove', this.handleMouseMoveBound);
          this.canvas.addEventListener('mouseup', this.handleMouseUpBound);
-         // 恢复 pointerEvents 为 auto，允许点击标注
-         this.canvas.style.pointerEvents = 'auto';
+         // 设置 pointerEvents 为 none，handleViewerMouseMove 会动态检测并切换
+         this.canvas.style.pointerEvents = 'none';
       }
    }
 
@@ -808,6 +824,42 @@ export class CanvasAnnotationEditor {
 
       // 没有点击到标注，将事件转发给 OpenSeadragon
       this.forwardEventToOpenSeadragon(e);
+   }
+
+   /**
+    * 处理 viewerContainer 的鼠标移动事件
+    * 用于检测鼠标是否在标注上方，动态切换 Canvas 的 pointerEvents
+    */
+   private handleViewerMouseMove(e: MouseEvent): void {
+      if (!this.canvas) return;
+
+      // 如果当前有绘制模式，保持 pointerEvents 为 auto
+      if (this.currentType) {
+         this.canvas.style.pointerEvents = 'auto';
+         return;
+      }
+
+      // 检测鼠标是否在标注上方
+      const rect = this.canvas.getBoundingClientRect();
+      if (!rect) {
+         this.canvas.style.pointerEvents = 'none';
+         return;
+      }
+
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // 检测是否在任何标注上方
+      let isOverAnnotation = false;
+      for (let i = this.annotations.length - 1; i >= 0; i--) {
+         if (this.isPointInAnnotation(mouseX, mouseY, this.annotations[i])) {
+            isOverAnnotation = true;
+            break;
+         }
+      }
+
+      // 动态切换 pointerEvents
+      this.canvas.style.pointerEvents = isOverAnnotation ? 'auto' : 'none';
    }
 
    /**
