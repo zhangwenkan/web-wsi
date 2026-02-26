@@ -738,10 +738,19 @@ const toggleSlideList = () => {
 // 切换测量尺模式
 const toggleRulerMode = () => {
    if (rulerMeasureRef.value) {
-      // 在切换模式前，先取消当前的绘制状态
+      // 在切换模式前，先取消当前的绘制状态和选中状态
       if (annotationEditor) {
          annotationEditor.cancelDraw();
-         console.log('切换测量模式前，已取消绘制状态');
+         annotationEditor.clearSelection();
+         console.log('切换测量模式前，已取消绘制状态和选中状态');
+      }
+
+      // 清除 store 中的选中状态
+      annotationStore.setSelectedIndex(null);
+
+      // 重置标注面板中的形状选择状态
+      if (annotationPanelRef.value) {
+         annotationPanelRef.value.resetShapeSelection();
       }
 
       // 先调用子组件的切换方法
@@ -786,7 +795,12 @@ const handleShapeSelect = (type: any) => {
    // 关闭现有 popup
    annotationPopupVisible.value = false;
    if (annotationEditor) {
-      annotationEditor.setDrawType(type);
+      // 如果是正方形，传递尺寸参数
+      if (type === 'square') {
+         annotationEditor.setDrawType(type, annotationStore.squareSize);
+      } else {
+         annotationEditor.setDrawType(type);
+      }
       // 同步颜色到AnnotationEditor
       annotationEditor.setCurrentColor(annotationStore.currentColor);
    }

@@ -87,6 +87,7 @@ export class CanvasAnnotationEditor {
    private handleMouseUpBound: any = null;
    private handleDoubleClickBound: any = null;
    private handleKeyDownBound: any = null;
+   private handleWheelBound: any = null;
    private renderHandler: any = null;
 
    // 渲染请求标志（用于节流）
@@ -129,6 +130,7 @@ export class CanvasAnnotationEditor {
       this.handleMouseUpBound = this.handleMouseUp.bind(this);
       this.handleDoubleClickBound = this.handleDoubleClick.bind(this);
       this.handleKeyDownBound = this.handleKeyDown.bind(this);
+      this.handleWheelBound = this.handleWheel.bind(this);
 
       // 绑定 OpenSeadragon 事件
       this.viewer.addHandler('animation', this.renderHandler);
@@ -140,12 +142,19 @@ export class CanvasAnnotationEditor {
       this.canvas.addEventListener('mousemove', this.handleMouseMoveBound);
       this.canvas.addEventListener('mouseup', this.handleMouseUpBound);
       this.canvas.addEventListener('dblclick', this.handleDoubleClickBound);
+      this.canvas.addEventListener('wheel', this.handleWheelBound, {
+         passive: false,
+      });
 
       // 绑定键盘事件（用于 ESC 取消绘制）
       document.addEventListener('keydown', this.handleKeyDownBound);
 
       // 初始化 Canvas 大小
       this.resizeCanvas();
+
+      // 初始化 pointerEvents 为 auto，允许点击标注
+      // 在事件处理中，如果没有点击到标注，会将事件转发给 OpenSeadragon
+      this.canvas.style.pointerEvents = 'auto';
 
       // 初始渲染
       this.render();
@@ -177,6 +186,7 @@ export class CanvasAnnotationEditor {
             'dblclick',
             this.handleDoubleClickBound
          );
+         this.canvas.removeEventListener('wheel', this.handleWheelBound);
       }
 
       // 解绑键盘事件
@@ -208,6 +218,14 @@ export class CanvasAnnotationEditor {
     */
    setAnnotations(annotations: Annotation[]) {
       this.annotations = annotations;
+      this.selectedAnnotationId = null;
+      this.render();
+   }
+
+   /**
+    * 清除选中状态
+    */
+   clearSelection() {
       this.selectedAnnotationId = null;
       this.render();
    }
@@ -469,6 +487,12 @@ export class CanvasAnnotationEditor {
       this.setViewPortEnable();
       this.setCursor('default');
 
+      // 保持 pointerEvents 为 auto，允许点击标注
+      // 在事件处理中，如果没有点击到标注，会将事件转发给 OpenSeadragon
+      if (this.canvas) {
+         this.canvas.style.pointerEvents = 'auto';
+      }
+
       // 清理临时变量
       this.markerPosition = null;
       this.lineStart = null;
@@ -520,7 +544,7 @@ export class CanvasAnnotationEditor {
          this.canvas.addEventListener('mousedown', this.handleMouseDownBound);
          this.canvas.addEventListener('mousemove', this.handleMouseMoveBound);
          this.canvas.addEventListener('mouseup', this.handleMouseUpBound);
-         // 恢复 Canvas 的 pointer events
+         // 恢复 pointerEvents 为 auto，允许点击标注
          this.canvas.style.pointerEvents = 'auto';
       }
    }
@@ -761,7 +785,10 @@ export class CanvasAnnotationEditor {
    private handleShapeClick(e: MouseEvent): void {
       // 碰撞检测，找到被点击的标注
       const rect = this.canvas?.getBoundingClientRect();
-      if (!rect) return;
+      if (!rect) {
+         this.forwardEventToOpenSeadragon(e);
+         return;
+      }
 
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
@@ -778,6 +805,37 @@ export class CanvasAnnotationEditor {
             return;
          }
       }
+
+      // 没有点击到标注，将事件转发给 OpenSeadragon
+      this.forwardEventToOpenSeadragon(e);
+   }
+
+   /**
+    * 将鼠标事件转发给 OpenSeadragon
+    */
+   private forwardEventToOpenSeadragon(e: MouseEvent): void {
+      if (!this.viewer || !this.viewerContainer) return;
+
+      // 创建新的事件并在 viewerContainer 上触发
+      const newEvent = new MouseEvent(e.type, {
+         bubbles: true,
+         cancelable: true,
+         clientX: e.clientX,
+         clientY: e.clientY,
+         button: e.button,
+         buttons: e.buttons,
+         relatedTarget: e.relatedTarget,
+         screenX: e.screenX,
+         screenY: e.screenY,
+         movementX: e.movementX,
+         movementY: e.movementY,
+         ctrlKey: e.ctrlKey,
+         shiftKey: e.shiftKey,
+         altKey: e.altKey,
+         metaKey: e.metaKey,
+      });
+
+      this.viewerContainer.dispatchEvent(newEvent);
    }
 
    /**
@@ -1039,7 +1097,11 @@ export class CanvasAnnotationEditor {
          return;
       }
 
-      if (!this.currentType) return;
+      if (!this.currentType) {
+         // 没有绘制模式，转发事件给 OpenSeadragon
+         this.forwardEventToOpenSeadragon(e);
+         return;
+      }
 
       const pt = this.getImagePoint(e);
 
@@ -1081,7 +1143,11 @@ export class CanvasAnnotationEditor {
          return;
       }
 
-      if (!this.currentType) return;
+      if (!this.currentType) {
+         // 没有绘制模式，转发事件给 OpenSeadragon
+         this.forwardEventToOpenSeadragon(e);
+         return;
+      }
 
       const pt = this.getImagePoint(e);
 
@@ -1132,6 +1198,30 @@ export class CanvasAnnotationEditor {
       if (e.key === 'Escape' && this.drawing) {
          this.cancelDraw();
       }
+   }
+
+   /**
+    * 滚轮事件处理 - 转发给 OpenSeadragon 进行缩放
+    */
+   private handleWheel(e: WheelEvent): void {
+      if (!this.viewer) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 获取鼠标在 viewer 中的位置
+      const rect = this.viewerContainer.getBoundingClientRect();
+      const point = new OpenSeadragon.Point(
+         e.clientX - rect.left,
+         e.clientY - rect.top
+      );
+
+      // 计算缩放因子
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const viewportPoint = this.viewer.viewport.pointFromPixel(point);
+
+      // 执行缩放
+      this.viewer.viewport.zoomBy(delta, viewportPoint);
    }
 
    // ============ Marker标注 ============

@@ -47,19 +47,13 @@
             </div>
          </div>
 
-         <!-- 备注输入 -->
+         <!-- 备注显示 -->
          <div
-            v-if="!(properties && Object.keys(properties).length > 0)"
-            class="popup-body"
+            v-if="annotation?.info && annotation.info !== ''"
+            class="popup-remark"
          >
-            <ElInput
-               v-model="info"
-               type="textarea"
-               :rows="3"
-               placeholder="请输入标注信息"
-               maxlength="50"
-               show-word-limit
-            />
+            <div class="remark-label">备注:</div>
+            <div class="remark-content">{{ annotation.info }}</div>
          </div>
 
          <!-- 操作按钮 -->
@@ -309,6 +303,22 @@ onUnmounted(() => {
    padding: 12px 16px;
    background-color: #f5f7fa;
    border-bottom: 1px solid #ebeef5;
+}
+.popup-remark {
+   padding: 12px 16px;
+   background-color: #fafafa;
+   border-bottom: 1px solid #ebeef5;
+}
+.remark-label {
+   margin-bottom: 4px;
+   font-size: 12px;
+   color: #909399;
+}
+.remark-content {
+   font-size: 13px;
+   line-height: 1.5;
+   color: #303133;
+   word-break: break-all;
 }
 .property-item {
    display: flex;
