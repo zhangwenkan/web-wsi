@@ -125,7 +125,7 @@ export class CanvasAnnotationEditor {
       this.drawing = false;
 
       // 创建事件处理器绑定
-      this.renderHandler = () => this.requestRender();
+      this.renderHandler = () => this.render(); // 直接同步渲染，确保与 OpenSeadragon 同帧
       this.handleMouseDownBound = this.handleMouseDown.bind(this);
       this.handleMouseMoveBound = this.handleMouseMove.bind(this);
       this.handleMouseUpBound = this.handleMouseUp.bind(this);
@@ -134,10 +134,11 @@ export class CanvasAnnotationEditor {
       this.handleWheelBound = this.handleWheel.bind(this);
       this.handleViewerMouseMoveBound = this.handleViewerMouseMove.bind(this);
 
-      // 绑定 OpenSeadragon 事件
+      // 绑定 OpenSeadragon 事件 - animation 事件在每帧动画时触发，确保同步
       this.viewer.addHandler('animation', this.renderHandler);
       this.viewer.addHandler('resize', this.renderHandler);
-      this.viewer.addHandler('update-viewport', this.renderHandler);
+      // update-viewport 可能会导致重复渲染，暂时禁用
+      // this.viewer.addHandler('update-viewport', this.renderHandler);
 
       // 绑定 Canvas 事件
       this.canvas.addEventListener('mousedown', this.handleMouseDownBound);
@@ -621,9 +622,12 @@ export class CanvasAnnotationEditor {
       if (!this.canvas || !this.ctx) return;
 
       const { width, height } = this.canvas;
+
+      // 重置变换矩阵并清除画布
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.clearRect(0, 0, width, height);
 
-      // 渲染所有标注
+      // 渲染所有标注（使用屏幕坐标）
       this.annotations.forEach((annotation) => {
          const isSelected = annotation.id === this.selectedAnnotationId;
          switch (annotation.type) {
@@ -654,7 +658,7 @@ export class CanvasAnnotationEditor {
          }
       });
 
-      // 渲染预览图形（如果正在绘制）
+      // 渲染预览图形
       if (this.drawing) {
          this.renderPreview();
       }
