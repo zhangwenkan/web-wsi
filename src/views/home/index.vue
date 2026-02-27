@@ -330,6 +330,7 @@ let playTimer: any = null;
 let initialZoom = 1; // 记录初始缩放级别
 let canvasOverlay: HTMLCanvasElement | null = null; // Canvas 覆盖层
 let annotationEditor: CanvasAnnotationEditor | null = null; // 标注编辑器实例
+let navigatingAnnotationId: string | null = null; // 正在跳转的标注 ID
 
 const slideListPanelRef = ref<InstanceType<typeof SlideListPanel> | null>(null);
 const rulerMeasureRef = shallowRef<InstanceType<typeof RulerMeasure> | null>(
@@ -647,6 +648,18 @@ const initOpenSeadragon = () => {
          viewer.value.viewport.applyConstraints(true);
       }
    });
+
+   // 监听动画事件，在跳转标注时更新 popup 位置
+   viewer.value.addHandler('animation', function () {
+      if (navigatingAnnotationId && annotationEditor) {
+         annotationEditor.showPopupForAnnotation(navigatingAnnotationId);
+      }
+   });
+
+   // 监听动画完成事件，清除跳转标注标记
+   viewer.value.addHandler('animation-finish', function () {
+      navigatingAnnotationId = null;
+   });
 };
 
 // 切换到上一张图片
@@ -828,11 +841,26 @@ watch(
 );
 
 const handleAnnotationSelect = (annotation: any) => {
-   // TODO: 实现标注选择功能
    console.log('选择标注:', annotation);
-   // 显示该标注的 popup
-   if (annotationEditor && annotation) {
-      annotationEditor.showPopupForAnnotation(annotation.id);
+
+   if (annotationEditor && annotation && viewer.value) {
+      // 获取标注的图像坐标中心点
+      const center = annotationEditor.getAnnotationCenter(annotation.id);
+      if (center) {
+         // 将图像坐标转换为视口坐标
+         const viewportPoint = viewer.value.viewport.imageToViewportCoordinates(
+            new OpenSeadragon.Point(center.x, center.y)
+         );
+
+         // 设置正在跳转的标注 ID，用于动画过程中更新 popup 位置
+         navigatingAnnotationId = annotation.id;
+
+         // 平滑移动到标注位置（false 表示使用动画过渡）
+         viewer.value.viewport.panTo(viewportPoint, false);
+
+         // 立即显示 popup
+         annotationEditor.showPopupForAnnotation(annotation.id);
+      }
    }
 };
 

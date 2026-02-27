@@ -496,6 +496,62 @@ export class CanvasAnnotationEditor {
    }
 
    /**
+    * 获取标注的图像坐标中心点
+    * @param annotationId 标注 ID
+    * @returns 图像坐标中心点 { x, y }
+    */
+   public getAnnotationCenter(
+      annotationId: string
+   ): { x: number; y: number } | null {
+      const annotation = this.annotations.find((a) => a.id === annotationId);
+      if (!annotation) return null;
+
+      const params = annotation.params as any;
+
+      switch (annotation.type) {
+         case 'marker':
+            return { x: params.x, y: params.y };
+         case 'line':
+            return {
+               x: (params.x1 + params.x2) / 2,
+               y: (params.y1 + params.y2) / 2,
+            };
+         case 'circle':
+            return { x: params.cx, y: params.cy };
+         case 'ellipse':
+            return { x: params.cx, y: params.cy };
+         case 'rect':
+            return {
+               x: params.x + params.width / 2,
+               y: params.y + params.height / 2,
+            };
+         case 'square':
+            return {
+               x: params.x + params.side / 2,
+               y: params.y + params.side / 2,
+            };
+         case 'polygon':
+         case 'freehand': {
+            const points = params.points || [];
+            if (points.length === 0) return null;
+            const centerX =
+               points.reduce(
+                  (sum: number, p: { x: number; y: number }) => sum + p.x,
+                  0
+               ) / points.length;
+            const centerY =
+               points.reduce(
+                  (sum: number, p: { x: number; y: number }) => sum + p.y,
+                  0
+               ) / points.length;
+            return { x: centerX, y: centerY };
+         }
+         default:
+            return null;
+      }
+   }
+
+   /**
     * 取消绘制
     */
    cancelDraw() {
