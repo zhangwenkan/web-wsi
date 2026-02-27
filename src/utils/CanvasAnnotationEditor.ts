@@ -638,7 +638,7 @@ export class CanvasAnnotationEditor {
                this.renderLine(annotation);
                break;
             case 'circle':
-               this.renderCircle(annotation);
+               this.renderCircle(annotation, isSelected);
                break;
             case 'ellipse':
                this.renderEllipse(annotation, isSelected);
@@ -719,7 +719,7 @@ export class CanvasAnnotationEditor {
    }
 
    /**
-    * 获取屏幕坐标点
+    * 获取屏幕坐标点（相对于 viewerContainer）
     */
    private getScreenPoint(imagePoint: { x: number; y: number }): {
       x: number;
@@ -731,6 +731,23 @@ export class CanvasAnnotationEditor {
          new OpenSeadragon.Point(imagePoint.x, imagePoint.y)
       );
       return { x: screenPoint.x, y: screenPoint.y };
+   }
+
+   /**
+    * 获取视口坐标点（相对于浏览器窗口，用于 position: fixed）
+    */
+   private getViewportPoint(imagePoint: { x: number; y: number }): {
+      x: number;
+      y: number;
+   } {
+      const screenPoint = this.getScreenPoint(imagePoint);
+      const containerRect = this.viewerContainer?.getBoundingClientRect();
+      const offsetX = containerRect?.left || 0;
+      const offsetY = containerRect?.top || 0;
+      return {
+         x: screenPoint.x + offsetX,
+         y: screenPoint.y + offsetY,
+      };
    }
 
    /**
@@ -1891,7 +1908,7 @@ export class CanvasAnnotationEditor {
       this.ctx.stroke();
    }
 
-   private renderCircle(ann: Annotation) {
+   private renderCircle(ann: Annotation, isSelected: boolean) {
       if (!this.ctx) return;
 
       const params = ann.params as CircleParams;
@@ -1907,6 +1924,12 @@ export class CanvasAnnotationEditor {
       this.ctx.strokeStyle = ann.color;
       this.ctx.lineWidth = 2;
       this.ctx.stroke();
+
+      // 填充
+      this.ctx.fillStyle = '#334c6b';
+      this.ctx.globalAlpha = isSelected ? 0.2 : 0;
+      this.ctx.fill();
+      this.ctx.globalAlpha = 1;
    }
 
    private renderEllipse(ann: Annotation, isSelected: boolean) {
@@ -2050,11 +2073,17 @@ export class CanvasAnnotationEditor {
    /**
     * 获取图形元素在视口中的边界框
     * @param annotationId 标注 ID
+    * @returns 相对于视口的边界框（用于 position: fixed 的 popup）
     */
    private getShapeBoundingBox(annotationId: string): DOMRect | null {
       // Canvas 中需要手动计算边界框
       const annotation = this.annotations.find((a) => a.id === annotationId);
       if (!annotation) return null;
+
+      // 获取 viewerContainer 相对于视口的偏移量
+      const containerRect = this.viewerContainer?.getBoundingClientRect();
+      const offsetX = containerRect?.left || 0;
+      const offsetY = containerRect?.top || 0;
 
       const params = annotation.params as any;
       let minX = Infinity,
@@ -2066,19 +2095,19 @@ export class CanvasAnnotationEditor {
          case 'marker': {
             const screenPt = this.getScreenPoint(params);
             const markerSize = 21;
-            minX = screenPt.x - markerSize;
-            minY = screenPt.y - markerSize * 2;
-            maxX = screenPt.x + markerSize;
-            maxY = screenPt.y + markerSize;
+            minX = screenPt.x - markerSize + offsetX;
+            minY = screenPt.y - markerSize * 2 + offsetY;
+            maxX = screenPt.x + markerSize + offsetX;
+            maxY = screenPt.y + markerSize + offsetY;
             break;
          }
          case 'line': {
             const pt1 = this.getScreenPoint({ x: params.x1, y: params.y1 });
             const pt2 = this.getScreenPoint({ x: params.x2, y: params.y2 });
-            minX = Math.min(pt1.x, pt2.x);
-            minY = Math.min(pt1.y, pt2.y);
-            maxX = Math.max(pt1.x, pt2.x);
-            maxY = Math.max(pt1.y, pt2.y);
+            minX = Math.min(pt1.x, pt2.x) + offsetX;
+            minY = Math.min(pt1.y, pt2.y) + offsetY;
+            maxX = Math.max(pt1.x, pt2.x) + offsetX;
+            maxY = Math.max(pt1.y, pt2.y) + offsetY;
             break;
          }
          case 'circle': {
@@ -2088,10 +2117,10 @@ export class CanvasAnnotationEditor {
                y: params.cy,
             });
             const radius = Math.abs(radiusPt.x - center.x);
-            minX = center.x - radius;
-            minY = center.y - radius;
-            maxX = center.x + radius;
-            maxY = center.y + radius;
+            minX = center.x - radius + offsetX;
+            minY = center.y - radius + offsetY;
+            maxX = center.x + radius + offsetX;
+            maxY = center.y + radius + offsetY;
             break;
          }
          case 'ellipse': {
@@ -2106,10 +2135,10 @@ export class CanvasAnnotationEditor {
             });
             const rx = Math.abs(rxScreen.x - center.x);
             const ry = Math.abs(ryScreen.y - center.y);
-            minX = center.x - rx;
-            minY = center.y - ry;
-            maxX = center.x + rx;
-            maxY = center.y + ry;
+            minX = center.x - rx + offsetX;
+            minY = center.y - ry + offsetY;
+            maxX = center.x + rx + offsetX;
+            maxY = center.y + ry + offsetY;
             break;
          }
          case 'rect':
@@ -2127,10 +2156,10 @@ export class CanvasAnnotationEditor {
                y: yVal + heightVal,
             });
 
-            minX = Math.min(start.x, end.x);
-            minY = Math.min(start.y, end.y);
-            maxX = Math.max(start.x, end.x);
-            maxY = Math.max(start.y, end.y);
+            minX = Math.min(start.x, end.x) + offsetX;
+            minY = Math.min(start.y, end.y) + offsetY;
+            maxX = Math.max(start.x, end.x) + offsetX;
+            maxY = Math.max(start.y, end.y) + offsetY;
             break;
          }
          case 'polygon':
@@ -2138,10 +2167,10 @@ export class CanvasAnnotationEditor {
             const points = params.points || [];
             points.forEach((p: { x: number; y: number }) => {
                const screenPt = this.getScreenPoint(p);
-               minX = Math.min(minX, screenPt.x);
-               minY = Math.min(minY, screenPt.y);
-               maxX = Math.max(maxX, screenPt.x);
-               maxY = Math.max(maxY, screenPt.y);
+               minX = Math.min(minX, screenPt.x + offsetX);
+               minY = Math.min(minY, screenPt.y + offsetY);
+               maxX = Math.max(maxX, screenPt.x + offsetX);
+               maxY = Math.max(maxY, screenPt.y + offsetY);
             });
             break;
          }
@@ -2154,13 +2183,17 @@ export class CanvasAnnotationEditor {
 
    private showAnnotationPopupForMarker(annotation: Annotation) {
       const params = annotation.params as MarkerParams;
-      const screenPt = this.getScreenPoint({ x: params.x, y: params.y });
+      const viewportPt = this.getViewportPoint({ x: params.x, y: params.y });
+
+      // 获取 marker 元素的实际边界框，使弹窗显示在底部
+      const boundingBox = this.getShapeBoundingBox(annotation.id);
+      const top = boundingBox ? boundingBox.bottom : viewportPt.y;
 
       const popupParams: PopupParams = {
          type: 'marker',
          annotation,
-         left: screenPt.x,
-         top: screenPt.y,
+         left: viewportPt.x,
+         top: top,
       };
 
       if (this.options.onShowAnnotationPopup) {
@@ -2174,19 +2207,19 @@ export class CanvasAnnotationEditor {
       const dy = params.y2 - params.y1;
       const length = Math.sqrt(dx * dx + dy * dy);
 
-      const midPt = this.getScreenPoint({
+      const midViewportPt = this.getViewportPoint({
          x: (params.x1 + params.x2) / 2,
          y: (params.y1 + params.y2) / 2,
       });
 
       // 获取线段元素的实际边界框，使弹窗显示在底部
       const boundingBox = this.getShapeBoundingBox(annotation.id);
-      const top = boundingBox ? boundingBox.bottom : midPt.y;
+      const top = boundingBox ? boundingBox.bottom : midViewportPt.y;
 
       const popupParams: PopupParams = {
          type: 'line',
          annotation,
-         left: midPt.x,
+         left: midViewportPt.x,
          top: top,
          properties: { length },
       };
@@ -2198,18 +2231,21 @@ export class CanvasAnnotationEditor {
 
    private showAnnotationPopupForCircle(annotation: Annotation) {
       const params = annotation.params as CircleParams;
-      const center = this.getScreenPoint({ x: params.cx, y: params.cy });
+      const centerViewportPt = this.getViewportPoint({
+         x: params.cx,
+         y: params.cy,
+      });
 
       const area = Math.PI * params.r * params.r;
 
       // 获取圆形元素的实际边界框，使弹窗显示在底部
       const boundingBox = this.getShapeBoundingBox(annotation.id);
-      const top = boundingBox ? boundingBox.bottom : center.y;
+      const top = boundingBox ? boundingBox.bottom : centerViewportPt.y;
 
       const popupParams: PopupParams = {
          type: 'circle',
          annotation,
-         left: center.x,
+         left: centerViewportPt.x,
          top: top,
          properties: { area },
       };
@@ -2221,18 +2257,21 @@ export class CanvasAnnotationEditor {
 
    private showAnnotationPopupForEllipse(annotation: Annotation) {
       const params = annotation.params as EllipseParams;
-      const center = this.getScreenPoint({ x: params.cx, y: params.cy });
+      const centerViewportPt = this.getViewportPoint({
+         x: params.cx,
+         y: params.cy,
+      });
 
       const area = Math.PI * params.rx * params.ry;
 
       // 获取椭圆元素的实际边界框，使弹窗显示在底部
       const boundingBox = this.getShapeBoundingBox(annotation.id);
-      const top = boundingBox ? boundingBox.bottom : center.y;
+      const top = boundingBox ? boundingBox.bottom : centerViewportPt.y;
 
       const popupParams: PopupParams = {
          type: 'ellipse',
          annotation,
-         left: center.x,
+         left: centerViewportPt.x,
          top: top,
          properties: {
             area,
@@ -2248,7 +2287,7 @@ export class CanvasAnnotationEditor {
 
    private showAnnotationPopupForRect(annotation: Annotation) {
       const params = annotation.params as RectParams;
-      const centerPt = this.getScreenPoint({
+      const centerViewportPt = this.getViewportPoint({
          x: params.x + params.width / 2,
          y: params.y + params.height / 2,
       });
@@ -2257,12 +2296,12 @@ export class CanvasAnnotationEditor {
 
       // 获取矩形元素的实际边界框，使弹窗显示在底部
       const boundingBox = this.getShapeBoundingBox(annotation.id);
-      const top = boundingBox ? boundingBox.bottom : centerPt.y;
+      const top = boundingBox ? boundingBox.bottom : centerViewportPt.y;
 
       const popupParams: PopupParams = {
          type: 'rect',
          annotation,
-         left: centerPt.x,
+         left: centerViewportPt.x,
          top: top,
          properties: {
             area,
@@ -2276,7 +2315,7 @@ export class CanvasAnnotationEditor {
 
    private showAnnotationPopupForSquare(annotation: Annotation) {
       const params = annotation.params as SquareParams;
-      const centerPt = this.getScreenPoint({
+      const centerViewportPt = this.getViewportPoint({
          x: params.x + params.side / 2,
          y: params.y + params.side / 2,
       });
@@ -2285,12 +2324,12 @@ export class CanvasAnnotationEditor {
 
       // 获取正方形元素的实际边界框，使弹窗显示在底部
       const boundingBox = this.getShapeBoundingBox(annotation.id);
-      const top = boundingBox ? boundingBox.bottom : centerPt.y;
+      const top = boundingBox ? boundingBox.bottom : centerViewportPt.y;
 
       const popupParams: PopupParams = {
          type: 'square',
          annotation,
-         left: centerPt.x,
+         left: centerViewportPt.x,
          top: top,
          properties: {
             area,
@@ -2310,17 +2349,34 @@ export class CanvasAnnotationEditor {
       const centerY =
          params.points.reduce((sum, p) => sum + p.y, 0) / params.points.length;
 
-      const centerPt = this.getScreenPoint({ x: centerX, y: centerY });
+      const centerViewportPt = this.getViewportPoint({
+         x: centerX,
+         y: centerY,
+      });
 
       // 获取多边形元素的实际边界框，使弹窗显示在底部
       const boundingBox = this.getShapeBoundingBox(annotation.id);
-      const top = boundingBox ? boundingBox.bottom : centerPt.y;
+      const top = boundingBox ? boundingBox.bottom : centerViewportPt.y;
+
+      // 计算水平直径和垂直直径（边界框的宽度和高度）
+      let horizontalDiameter = 0;
+      let verticalDiameter = 0;
+      if (params.points.length > 0) {
+         const xs = params.points.map((p) => p.x);
+         const ys = params.points.map((p) => p.y);
+         horizontalDiameter = Math.max(...xs) - Math.min(...xs);
+         verticalDiameter = Math.max(...ys) - Math.min(...ys);
+      }
 
       const popupParams: PopupParams = {
          type: 'polygon',
          annotation,
-         left: centerPt.x,
+         left: centerViewportPt.x,
          top: top,
+         properties: {
+            horizontalDiameter,
+            verticalDiameter,
+         },
       };
 
       if (this.options.onShowAnnotationPopup) {
@@ -2336,17 +2392,34 @@ export class CanvasAnnotationEditor {
       const centerY =
          params.points.reduce((sum, p) => sum + p.y, 0) / params.points.length;
 
-      const centerPt = this.getScreenPoint({ x: centerX, y: centerY });
+      const centerViewportPt = this.getViewportPoint({
+         x: centerX,
+         y: centerY,
+      });
 
       // 获取自由绘制元素的实际边界框，使弹窗显示在底部
       const boundingBox = this.getShapeBoundingBox(annotation.id);
-      const top = boundingBox ? boundingBox.bottom : centerPt.y;
+      const top = boundingBox ? boundingBox.bottom : centerViewportPt.y;
+
+      // 计算水平直径和垂直直径（边界框的宽度和高度）
+      let horizontalDiameter = 0;
+      let verticalDiameter = 0;
+      if (params.points.length > 0) {
+         const xs = params.points.map((p) => p.x);
+         const ys = params.points.map((p) => p.y);
+         horizontalDiameter = Math.max(...xs) - Math.min(...xs);
+         verticalDiameter = Math.max(...ys) - Math.min(...ys);
+      }
 
       const popupParams: PopupParams = {
          type: 'freehand',
          annotation,
-         left: centerPt.x,
+         left: centerViewportPt.x,
          top: top,
+         properties: {
+            horizontalDiameter,
+            verticalDiameter,
+         },
       };
 
       if (this.options.onShowAnnotationPopup) {
