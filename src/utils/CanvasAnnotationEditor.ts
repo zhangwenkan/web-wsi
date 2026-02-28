@@ -94,6 +94,22 @@ export class CanvasAnnotationEditor {
    // 渲染请求标志（用于节流）
    private renderRequested = false;
 
+   // 移动标注操作按钮区
+   private moveToolbar: HTMLDivElement | null = null;
+
+   // 控制点相关
+   private controlPoints: Array<{
+      x: number;
+      y: number;
+      type: string;
+      index?: number;
+   }> = [];
+   private activeControlPoint: number | null = null; // 当前激活的控制点索引
+   private isDraggingControlPoint = false;
+   private draggingControlPointInfo: { type: string; index?: number } | null =
+      null; // 拖动时的控制点信息
+   private ellipseOriginalRatio = 1; // 椭圆拖动时的原始 rx/ry 比例
+
    constructor() {
       // 空构造函数，通过 init 方法初始化
    }
@@ -209,6 +225,9 @@ export class CanvasAnnotationEditor {
       // 解绑键盘事件
       document.removeEventListener('keydown', this.handleKeyDownBound);
 
+      // 移除操作按钮区
+      this.removeMoveToolbar();
+
       // 清理引用
       this.canvas = null;
       this.ctx = null;
@@ -307,8 +326,147 @@ export class CanvasAnnotationEditor {
          this.movingAnnotationId = id;
          // 保存原始数据用于取消时恢复
          this.originalAnnotationData = JSON.parse(JSON.stringify(annotation));
+
+         // 确保 Canvas 可以接收鼠标事件
+         if (this.canvas) {
+            this.canvas.style.pointerEvents = 'auto';
+         }
+
          this.setCursor('move');
          this.render();
+
+         // 创建并显示操作按钮区
+         this.createMoveToolbar(annotation);
+      }
+   }
+
+   /**
+    * 创建移动标注操作按钮区
+    */
+   private createMoveToolbar(annotation: Annotation) {
+      // 如果已存在，先移除
+      this.removeMoveToolbar();
+
+      // 创建工具栏容器
+      this.moveToolbar = document.createElement('div');
+      this.moveToolbar.className = 'annotation-move-toolbar';
+      this.moveToolbar.innerHTML = `
+         <div class="move-toolbar-content">
+            <div class="move-icon" title="拖动移动">
+               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/>
+               </svg>
+            </div>
+            <button class="move-toolbar-btn save-btn">保存</button>
+            <button class="move-toolbar-btn cancel-btn">取消</button>
+         </div>
+      `;
+
+      // 添加样式
+      const style = document.createElement('style');
+      style.textContent = `
+         .annotation-move-toolbar {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: auto;
+         }
+         .move-toolbar-content {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 12px;
+            background: #ffffff;
+            border-radius: 6px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+         }
+         .move-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            color: #606266;
+            cursor: move;
+         }
+         .move-toolbar-btn {
+            padding: 4px 12px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+         }
+         .save-btn {
+            color: #ffffff;
+            background: #409eff;
+         }
+         .save-btn:hover {
+            background: #66b1ff;
+         }
+         .cancel-btn {
+            color: #606266;
+            background: #f5f7fa;
+            border: 1px solid #dcdfe6;
+         }
+         .cancel-btn:hover {
+            color: #409eff;
+            border-color: #c6e2ff;
+            background: #ecf5ff;
+         }
+      `;
+      this.moveToolbar.appendChild(style);
+
+      // 绑定事件
+      const saveBtn = this.moveToolbar.querySelector('.save-btn');
+      const cancelBtn = this.moveToolbar.querySelector('.cancel-btn');
+
+      saveBtn?.addEventListener('click', () => {
+         this.saveMoveAnnotation();
+      });
+
+      cancelBtn?.addEventListener('click', () => {
+         this.cancelMoveAnnotation();
+      });
+
+      // 添加到 body
+      document.body.appendChild(this.moveToolbar);
+
+      // 更新位置
+      this.updateMoveToolbarPosition();
+   }
+
+   /**
+    * 更新操作按钮区位置
+    */
+   private updateMoveToolbarPosition() {
+      if (!this.moveToolbar || !this.movingAnnotationId) return;
+
+      const annotation = this.annotations.find(
+         (a) => a.id === this.movingAnnotationId
+      );
+      if (!annotation) return;
+
+      // 获取标注的边界框
+      const boundingBox = this.getShapeBoundingBox(this.movingAnnotationId);
+      if (!boundingBox) return;
+
+      // 计算工具栏位置（在标注图形下方居中）
+      const toolbarWidth = 160; // 工具栏大约宽度
+      const left = boundingBox.left + boundingBox.width / 2;
+      const top = boundingBox.bottom + 8; // 距离标注底部8px
+
+      this.moveToolbar.style.left = `${left}px`;
+      this.moveToolbar.style.top = `${top}px`;
+      this.moveToolbar.style.transform = 'translate(-50%, 0)';
+   }
+
+   /**
+    * 移除操作按钮区
+    */
+   private removeMoveToolbar() {
+      if (this.moveToolbar) {
+         this.moveToolbar.remove();
+         this.moveToolbar = null;
       }
    }
 
@@ -373,7 +531,14 @@ export class CanvasAnnotationEditor {
       if (this.movingAnnotationId) {
          this.movingAnnotationId = null;
          this.originalAnnotationData = null;
+
+         // 恢复 Canvas 的 pointerEvents 设置
+         if (this.canvas) {
+            this.canvas.style.pointerEvents = 'none';
+         }
+
          this.setCursor('default');
+         this.removeMoveToolbar();
          this.render();
 
          // 触发编辑回调
@@ -398,7 +563,14 @@ export class CanvasAnnotationEditor {
 
          this.movingAnnotationId = null;
          this.originalAnnotationData = null;
+
+         // 恢复 Canvas 的 pointerEvents 设置
+         if (this.canvas) {
+            this.canvas.style.pointerEvents = 'none';
+         }
+
          this.setCursor('default');
+         this.removeMoveToolbar();
          this.render();
       }
    }
@@ -718,6 +890,234 @@ export class CanvasAnnotationEditor {
       if (this.drawing) {
          this.renderPreview();
       }
+
+      // 渲染控制点（编辑模式下）
+      if (this.movingAnnotationId) {
+         // 计算控制点位置（用于点击检测）
+         this.calculateControlPoints();
+         // 渲染控制点（使用当前标注的实际位置）
+         this.renderControlPoints();
+      }
+
+      // 更新操作按钮区位置
+      if (this.moveToolbar && this.movingAnnotationId) {
+         this.updateMoveToolbarPosition();
+      }
+   }
+
+   /**
+    * 计算控制点位置
+    */
+   private calculateControlPoints() {
+      this.controlPoints = [];
+      if (!this.movingAnnotationId) return;
+
+      const annotation = this.annotations.find(
+         (a) => a.id === this.movingAnnotationId
+      );
+      if (!annotation) return;
+
+      const params = annotation.params as any;
+
+      switch (annotation.type) {
+         case 'line': {
+            // 线段：两个端点
+            this.controlPoints.push(
+               { x: params.x1, y: params.y1, type: 'endpoint', index: 0 },
+               { x: params.x2, y: params.y2, type: 'endpoint', index: 1 }
+            );
+            break;
+         }
+         case 'circle': {
+            // 圆形：上右下左四个方向的控制点
+            this.controlPoints.push(
+               { x: params.cx, y: params.cy - params.r, type: 'edge-top' },
+               { x: params.cx + params.r, y: params.cy, type: 'edge-right' },
+               { x: params.cx, y: params.cy + params.r, type: 'edge-bottom' },
+               { x: params.cx - params.r, y: params.cy, type: 'edge-left' }
+            );
+            break;
+         }
+         case 'ellipse': {
+            // 椭圆：一个控制点，在右下角贴近椭圆边缘
+            this.controlPoints.push({
+               x: params.cx + params.rx,
+               y: params.cy + params.ry,
+               type: 'scale',
+            });
+            break;
+         }
+         case 'rect': {
+            // 矩形：四个角点
+            this.controlPoints.push(
+               { x: params.x, y: params.y, type: 'corner', index: 0 }, // 左上
+               {
+                  x: params.x + params.width,
+                  y: params.y,
+                  type: 'corner',
+                  index: 1,
+               }, // 右上
+               {
+                  x: params.x + params.width,
+                  y: params.y + params.height,
+                  type: 'corner',
+                  index: 2,
+               }, // 右下
+               {
+                  x: params.x,
+                  y: params.y + params.height,
+                  type: 'corner',
+                  index: 3,
+               } // 左下
+            );
+            break;
+         }
+         case 'square': {
+            // 正方形：四个角点
+            this.controlPoints.push(
+               { x: params.x, y: params.y, type: 'corner', index: 0 }, // 左上
+               {
+                  x: params.x + params.side,
+                  y: params.y,
+                  type: 'corner',
+                  index: 1,
+               }, // 右上
+               {
+                  x: params.x + params.side,
+                  y: params.y + params.side,
+                  type: 'corner',
+                  index: 2,
+               }, // 右下
+               {
+                  x: params.x,
+                  y: params.y + params.side,
+                  type: 'corner',
+                  index: 3,
+               } // 左下
+            );
+            break;
+         }
+         case 'polygon': {
+            // 多边形：每个顶点
+            params.points.forEach(
+               (point: { x: number; y: number }, index: number) => {
+                  this.controlPoints.push({
+                     x: point.x,
+                     y: point.y,
+                     type: 'vertex',
+                     index,
+                  });
+               }
+            );
+            break;
+         }
+         case 'marker':
+         case 'freehand':
+            // 标记和自由绘制不需要控制点
+            break;
+      }
+   }
+
+   /**
+    * 渲染控制点
+    */
+   private renderControlPoints() {
+      if (!this.ctx) return;
+      if (!this.movingAnnotationId) return;
+
+      const annotation = this.annotations.find(
+         (a) => a.id === this.movingAnnotationId
+      );
+      if (!annotation) return;
+
+      const params = annotation.params as any;
+      let points: Array<{ x: number; y: number }> = [];
+
+      // 根据标注类型计算控制点位置（使用当前的 params）
+      switch (annotation.type) {
+         case 'line': {
+            points = [
+               { x: params.x1, y: params.y1 },
+               { x: params.x2, y: params.y2 },
+            ];
+            break;
+         }
+         case 'circle': {
+            points = [
+               { x: params.cx, y: params.cy - params.r },
+               { x: params.cx + params.r, y: params.cy },
+               { x: params.cx, y: params.cy + params.r },
+               { x: params.cx - params.r, y: params.cy },
+            ];
+            break;
+         }
+         case 'ellipse': {
+            // 椭圆：一个控制点，在右下角贴近椭圆边缘
+            points = [{ x: params.cx + params.rx, y: params.cy + params.ry }];
+            break;
+         }
+         case 'rect': {
+            points = [
+               { x: params.x, y: params.y },
+               { x: params.x + params.width, y: params.y },
+               { x: params.x + params.width, y: params.y + params.height },
+               { x: params.x, y: params.y + params.height },
+            ];
+            break;
+         }
+         case 'square': {
+            points = [
+               { x: params.x, y: params.y },
+               { x: params.x + params.side, y: params.y },
+               { x: params.x + params.side, y: params.y + params.side },
+               { x: params.x, y: params.y + params.side },
+            ];
+            break;
+         }
+         case 'polygon': {
+            points = params.points.map((p: { x: number; y: number }) => ({
+               x: p.x,
+               y: p.y,
+            }));
+            break;
+         }
+         case 'marker':
+         case 'freehand':
+            return;
+      }
+
+      this.ctx.save();
+
+      points.forEach((point) => {
+         const screenPt = this.getScreenPoint({ x: point.x, y: point.y });
+
+         // 控制点样式
+         this.ctx.beginPath();
+         this.ctx.arc(screenPt.x, screenPt.y, 8, 0, Math.PI * 2);
+         this.ctx.fillStyle = '#ffffff';
+         this.ctx.fill();
+         this.ctx.strokeStyle = '#409eff';
+         this.ctx.lineWidth = 2;
+         this.ctx.stroke();
+      });
+
+      this.ctx.restore();
+   }
+
+   /**
+    * 检测点击是否在控制点上
+    */
+   private getControlPointAt(x: number, y: number): number | null {
+      for (let i = this.controlPoints.length - 1; i >= 0; i--) {
+         const point = this.controlPoints[i];
+         const screenPt = this.getScreenPoint({ x: point.x, y: point.y });
+         const dx = x - screenPt.x;
+         const dy = y - screenPt.y;
+         if (Math.sqrt(dx * dx + dy * dy) < 15) {
+            return i;
+         }
+      }
+      return null;
    }
 
    /**
@@ -823,6 +1223,28 @@ export class CanvasAnnotationEditor {
             const clickX = e.clientX - rect.left;
             const clickY = e.clientY - rect.top;
 
+            // 先检测是否点击了控制点
+            const controlPointIndex = this.getControlPointAt(clickX, clickY);
+            if (controlPointIndex !== null) {
+               // 点击了控制点，开始拖动控制点
+               this.activeControlPoint = controlPointIndex;
+               this.isDraggingControlPoint = true;
+               // 保存控制点信息，避免在 render 后丢失
+               const cp = this.controlPoints[controlPointIndex];
+               this.draggingControlPointInfo = {
+                  type: cp.type,
+                  index: cp.index,
+               };
+
+               // 如果是椭圆，保存原始比例
+               if (annotation.type === 'ellipse') {
+                  const params = annotation.params as any;
+                  this.ellipseOriginalRatio =
+                     params.ry > 0 ? params.rx / params.ry : 1;
+               }
+               return;
+            }
+
             // 检测点击是否在标注内
             if (this.isPointInAnnotation(clickX, clickY, annotation)) {
                // 点击了正在移动的标注，开始拖动
@@ -913,6 +1335,36 @@ export class CanvasAnnotationEditor {
       // 如果当前有绘制模式，保持 pointerEvents 为 auto
       if (this.currentType) {
          this.canvas.style.pointerEvents = 'auto';
+         return;
+      }
+
+      // 如果正在移动标注模式，保持 pointerEvents 为 auto
+      if (this.movingAnnotationId) {
+         this.canvas.style.pointerEvents = 'auto';
+
+         // 检测鼠标是否在控制点上，更新光标样式
+         const rect = this.canvas.getBoundingClientRect();
+         if (rect) {
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const controlPointIndex = this.getControlPointAt(mouseX, mouseY);
+
+            if (controlPointIndex !== null) {
+               this.setCursor('nwse-resize'); // 调整大小的光标
+            } else {
+               const annotation = this.annotations.find(
+                  (a) => a.id === this.movingAnnotationId
+               );
+               if (
+                  annotation &&
+                  this.isPointInAnnotation(mouseX, mouseY, annotation)
+               ) {
+                  this.setCursor('move');
+               } else {
+                  this.setCursor('default');
+               }
+            }
+         }
          return;
       }
 
@@ -1205,6 +1657,12 @@ export class CanvasAnnotationEditor {
     * 鼠标移动事件处理
     */
    private handleMouseMove(e: MouseEvent): void {
+      // 如果正在拖动控制点
+      if (this.isDraggingControlPoint && this.activeControlPoint !== null) {
+         this.handleControlPointDrag(e);
+         return;
+      }
+
       // 如果正在拖动标注
       if (
          this.isDragging &&
@@ -1221,7 +1679,8 @@ export class CanvasAnnotationEditor {
 
             // 更新标注位置
             this.moveAnnotation(annotation, dx, dy);
-            this.requestRender();
+            // 直接渲染，确保拖动时实时更新
+            this.render();
          }
          return;
       }
@@ -1260,9 +1719,155 @@ export class CanvasAnnotationEditor {
    }
 
    /**
+    * 处理控制点拖动
+    */
+   private handleControlPointDrag(e: MouseEvent) {
+      if (!this.movingAnnotationId || !this.draggingControlPointInfo) return;
+
+      const annotation = this.annotations.find(
+         (a) => a.id === this.movingAnnotationId
+      );
+      if (!annotation) return;
+
+      const pt = this.getImagePoint(e);
+      const controlPoint = this.draggingControlPointInfo;
+      const params = annotation.params as any;
+
+      switch (annotation.type) {
+         case 'line': {
+            // 线段端点拖动
+            if (controlPoint.index === 0) {
+               params.x1 = pt.x;
+               params.y1 = pt.y;
+            } else if (controlPoint.index === 1) {
+               params.x2 = pt.x;
+               params.y2 = pt.y;
+            }
+            break;
+         }
+         case 'circle': {
+            // 圆形四边控制点拖动
+            const minRadius = 5;
+            // 使用鼠标到圆心的距离来计算半径
+            const dx = pt.x - params.cx;
+            const dy = pt.y - params.cy;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            params.r = Math.max(minRadius, distance);
+            break;
+         }
+         case 'ellipse': {
+            // 椭圆等比例缩放：根据鼠标到中心的距离同时缩放 rx 和 ry
+            const minRadius = 5;
+            const dx = pt.x - params.cx;
+            const dy = pt.y - params.cy;
+            // 计算鼠标到中心的距离
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            // 使用原始比例计算新的 rx 和 ry
+            // distance 是椭圆边界上的点到中心的距离，假设是45度角
+            // 对于椭圆，d^2 = rx^2 + ry^2（简化计算）
+            // 使用保存的原始比例 rx/ry = ratio
+            const ratio = this.ellipseOriginalRatio;
+            // d^2 = rx^2 + (rx/ratio)^2 = rx^2 * (1 + 1/ratio^2)
+            // rx = d / sqrt(1 + 1/ratio^2)
+            if (ratio > 0) {
+               const newRx = distance / Math.sqrt(1 + 1 / (ratio * ratio));
+               const newRy = newRx / ratio;
+               params.rx = Math.max(minRadius, newRx);
+               params.ry = Math.max(minRadius, newRy);
+            }
+            break;
+         }
+         case 'rect': {
+            // 矩形四个角点拖动
+            if (controlPoint.index === undefined) break;
+            const minSize = 10;
+
+            // 对角点索引：左上(0)-右下(2)，右上(1)-左下(3)
+            const oppositeIndex = [2, 3, 0, 1][controlPoint.index];
+
+            // 计算对角点位置
+            let oppositeCorner: { x: number; y: number };
+            switch (oppositeIndex) {
+               case 0: // 左上
+                  oppositeCorner = { x: params.x, y: params.y };
+                  break;
+               case 1: // 右上
+                  oppositeCorner = { x: params.x + params.width, y: params.y };
+                  break;
+               case 2: // 右下
+                  oppositeCorner = {
+                     x: params.x + params.width,
+                     y: params.y + params.height,
+                  };
+                  break;
+               case 3: // 左下
+                  oppositeCorner = { x: params.x, y: params.y + params.height };
+                  break;
+               default:
+                  oppositeCorner = { x: params.x, y: params.y };
+            }
+
+            // 根据当前拖动点和对角点计算新矩形
+            const newX = Math.min(pt.x, oppositeCorner.x);
+            const newY = Math.min(pt.y, oppositeCorner.y);
+            const newWidth = Math.abs(pt.x - oppositeCorner.x);
+            const newHeight = Math.abs(pt.y - oppositeCorner.y);
+
+            if (newWidth >= minSize && newHeight >= minSize) {
+               params.x = newX;
+               params.y = newY;
+               params.width = newWidth;
+               params.height = newHeight;
+            }
+            break;
+         }
+         case 'square': {
+            // 正方形四个角点拖动（保持正方形）
+            if (controlPoint.index === undefined) break;
+            const minSize = 10;
+            const center = {
+               x: params.x + params.side / 2,
+               y: params.y + params.side / 2,
+            };
+
+            // 计算新的半边长（取鼠标到中心的最大距离）
+            const dx = pt.x - center.x;
+            const dy = pt.y - center.y;
+            const newHalfSide = Math.max(Math.abs(dx), Math.abs(dy));
+
+            if (newHalfSide * 2 >= minSize) {
+               params.x = center.x - newHalfSide;
+               params.y = center.y - newHalfSide;
+               params.side = newHalfSide * 2;
+            }
+            break;
+         }
+         case 'polygon': {
+            // 多边形顶点拖动
+            if (controlPoint.index !== undefined) {
+               params.points[controlPoint.index] = { x: pt.x, y: pt.y };
+            }
+            break;
+         }
+      }
+
+      // 直接渲染，不使用节流，确保拖动时实时更新
+      this.render();
+   }
+
+   /**
     * 鼠标释放事件处理
     */
    private handleMouseUp(e: MouseEvent): void {
+      // 如果正在拖动控制点
+      if (this.isDraggingControlPoint) {
+         this.isDraggingControlPoint = false;
+         this.activeControlPoint = null;
+         this.draggingControlPointInfo = null;
+         this.render();
+         return;
+      }
+
       // 如果正在拖动标注
       if (this.isDragging) {
          this.isDragging = false;

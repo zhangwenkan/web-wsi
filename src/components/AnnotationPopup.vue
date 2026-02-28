@@ -55,6 +55,14 @@
          <!-- 操作按钮 -->
          <div class="popup-footer">
             <ElButton
+               v-if="showEdit"
+               size="small"
+               type="primary"
+               @click="handleEdit"
+            >
+               编辑
+            </ElButton>
+            <ElButton
                v-if="showDelete"
                size="small"
                type="danger"
@@ -77,16 +85,19 @@ interface Props {
    visible: boolean;
    params: PopupParams | null;
    showDelete?: boolean;
+   showEdit?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
    showDelete: true,
+   showEdit: true,
 });
 
 // Emits
 const emit = defineEmits<{
    (e: 'close'): void;
    (e: 'delete', id: string): void;
+   (e: 'edit', annotation: any): void;
 }>();
 
 // 响应式数据
@@ -157,6 +168,13 @@ const handleClose = () => {
 const handleDelete = () => {
    if (annotation.value) {
       emit('delete', annotation.value.id);
+   }
+};
+
+const handleEdit = () => {
+   if (annotation.value) {
+      emit('edit', annotation.value);
+      emit('close');
    }
 };
 

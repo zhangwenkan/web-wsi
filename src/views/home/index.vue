@@ -157,6 +157,7 @@
          :params="annotationPopupParams"
          @close="annotationPopupVisible = false"
          @delete="handlePopupDelete"
+         @edit="handlePopupEdit"
       />
 
       <ScaleBar
@@ -907,6 +908,15 @@ const handlePopupDelete = () => {
       );
    }
    annotationPopupVisible.value = false;
+};
+
+const handlePopupEdit = (annotation: any) => {
+   // 进入标注移动模式
+   if (annotationEditor && annotation) {
+      // 关闭标注信息弹窗
+      annotationPopupVisible.value = false;
+      annotationEditor.startMoveAnnotation(annotation.id);
+   }
 };
 
 // 复位切片列表
