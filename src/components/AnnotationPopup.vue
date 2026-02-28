@@ -9,11 +9,7 @@
          }"
       >
          <!-- 标题栏 -->
-         <div
-            class="popup-header"
-            :style="{ cursor: isDragging ? 'grabbing' : 'grab' }"
-            @mousedown="startDrag"
-         >
+         <div class="popup-header">
             <div class="header-left">
                <div
                   class="color-dot"
@@ -96,9 +92,6 @@ const emit = defineEmits<{
 // 响应式数据
 const info = ref('');
 const position = reactive({ left: 0, top: 0 });
-const isDragging = ref(false);
-const dragStartPos = reactive({ x: 0, y: 0 });
-const dragOffset = reactive({ x: 0, y: 0 });
 
 // 计算属性
 const annotation = computed(() => props.params?.annotation);
@@ -156,43 +149,6 @@ const formatPropertyValue = (key: string, value: number | undefined) => {
    }
 };
 
-// 拖拽处理
-const startDrag = (e: MouseEvent) => {
-   e.preventDefault();
-   isDragging.value = true;
-   dragStartPos.x = e.clientX;
-   dragStartPos.y = e.clientY;
-   dragOffset.x = e.clientX - position.left;
-   dragOffset.y = e.clientY - position.top;
-
-   document.addEventListener('mousemove', onDrag);
-   document.addEventListener('mouseup', stopDrag);
-   document.body.style.userSelect = 'none';
-};
-
-const onDrag = (e: MouseEvent) => {
-   if (!isDragging.value) return;
-
-   const newLeft = e.clientX - dragOffset.x;
-   const newTop = e.clientY - dragOffset.y;
-
-   // 边界检查
-   const popupWidth = 340;
-   const popupHeight = 300;
-   const viewportWidth = window.innerWidth;
-   const viewportHeight = window.innerHeight;
-
-   position.left = Math.max(0, Math.min(newLeft, viewportWidth - popupWidth));
-   position.top = Math.max(0, Math.min(newTop, viewportHeight - popupHeight));
-};
-
-const stopDrag = () => {
-   isDragging.value = false;
-   document.removeEventListener('mousemove', onDrag);
-   document.removeEventListener('mouseup', stopDrag);
-   document.body.style.userSelect = '';
-};
-
 // 事件处理
 const handleClose = () => {
    emit('close');
@@ -248,16 +204,14 @@ watch(
 );
 
 onUnmounted(() => {
-   document.removeEventListener('mousemove', onDrag);
-   document.removeEventListener('mouseup', stopDrag);
-   document.body.style.userSelect = '';
+   // 组件卸载时无需清理
 });
 </script>
 
 <style scoped lang="scss">
 .annotation-popup {
    position: fixed;
-   z-index: 9999;
+   z-index: 67;
    width: 340px;
    background-color: #ffffff;
    border: 1px solid #dcdfe6;

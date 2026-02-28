@@ -649,10 +649,16 @@ const initOpenSeadragon = () => {
       }
    });
 
-   // 监听动画事件，在跳转标注时更新 popup 位置
+   // 监听动画事件，更新 popup 位置使其跟随标注图形
    viewer.value.addHandler('animation', function () {
-      if (navigatingAnnotationId && annotationEditor) {
-         annotationEditor.showPopupForAnnotation(navigatingAnnotationId);
+      if (
+         annotationEditor &&
+         annotationPopupVisible.value &&
+         annotationPopupParams.value?.annotation
+      ) {
+         annotationEditor.showPopupForAnnotation(
+            annotationPopupParams.value.annotation.id
+         );
       }
    });
 
