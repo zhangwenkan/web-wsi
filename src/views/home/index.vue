@@ -142,6 +142,7 @@
       <AnnotationPanel
          ref="annotationPanelRef"
          :visible="annotationVisible"
+         :zoom-value="zoomValue"
          @shape-select="handleShapeSelect"
          @annotation-select="handleAnnotationSelect"
          @annotation-move-start="handleAnnotationMoveStart"

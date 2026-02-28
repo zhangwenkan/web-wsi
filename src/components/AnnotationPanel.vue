@@ -101,6 +101,13 @@
                      <span class="section-title"
                         >标注列表 ({{ annotations.length }})</span
                      >
+                     <ElButton
+                        size="small"
+                        type="primary"
+                        @click="handleExportExcel"
+                     >
+                        导出Excel
+                     </ElButton>
                   </div>
                   <div class="annotation-list">
                      <div
@@ -236,13 +243,17 @@ import type {
    ColorOption,
    ShapeOption,
 } from '@/types/annotation';
+import * as XLSX from 'xlsx';
 
 // Props
 interface Props {
    visible: boolean;
+   zoomValue?: number;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+   zoomValue: 1,
+});
 
 // Emits
 const emit = defineEmits<{
@@ -488,6 +499,134 @@ const handleCancelMove = () => {
 
 const handleClose = () => {
    emit('close');
+};
+
+/**
+ * 导出标注数据到 Excel
+ */
+const handleExportExcel = () => {
+   if (annotations.value.length === 0) {
+      ElMessage.warning('暂无标注数据可导出');
+      return;
+   }
+
+   // 像素转微米的比例因子
+   const pixelToMicron = 0.46;
+
+   // 准备导出数据
+   const exportData = annotations.value.map((annotation, index) => {
+      const params = annotation.params as any;
+      let x = 0,
+         y = 0,
+         horizontalDiameter = 0,
+         verticalDiameter = 0,
+         area = 0;
+
+      switch (annotation.type) {
+         case 'marker':
+            x = params.x;
+            y = params.y;
+            break;
+         case 'line':
+            x = (params.x1 + params.x2) / 2;
+            y = (params.y1 + params.y2) / 2;
+            const lineLength = Math.sqrt(
+               Math.pow(params.x2 - params.x1, 2) +
+                  Math.pow(params.y2 - params.y1, 2)
+            );
+            horizontalDiameter = lineLength;
+            verticalDiameter = lineLength;
+            break;
+         case 'circle':
+            x = params.cx;
+            y = params.cy;
+            horizontalDiameter = params.r * 2;
+            verticalDiameter = params.r * 2;
+            area = Math.PI * params.r * params.r;
+            break;
+         case 'ellipse':
+            x = params.cx;
+            y = params.cy;
+            horizontalDiameter = params.rx * 2;
+            verticalDiameter = params.ry * 2;
+            area = Math.PI * params.rx * params.ry;
+            break;
+         case 'rect':
+            x = params.x + params.width / 2;
+            y = params.y + params.height / 2;
+            horizontalDiameter = params.width;
+            verticalDiameter = params.height;
+            area = params.width * params.height;
+            break;
+         case 'square':
+            x = params.x + params.side / 2;
+            y = params.y + params.side / 2;
+            horizontalDiameter = params.side;
+            verticalDiameter = params.side;
+            area = params.side * params.side;
+            break;
+         case 'polygon':
+         case 'freehand':
+            const points = params.points || [];
+            if (points.length > 0) {
+               const xs = points.map((p: { x: number; y: number }) => p.x);
+               const ys = points.map((p: { x: number; y: number }) => p.y);
+               x =
+                  xs.reduce((a: number, b: number) => a + b, 0) / points.length;
+               y =
+                  ys.reduce((a: number, b: number) => a + b, 0) / points.length;
+               horizontalDiameter = Math.max(...xs) - Math.min(...xs);
+               verticalDiameter = Math.max(...ys) - Math.min(...ys);
+            }
+            break;
+      }
+
+      return {
+         形状: getAnnotationTypeLabel(annotation.type),
+         x坐标: Math.round(x * pixelToMicron * 100) / 100,
+         y坐标: Math.round(y * pixelToMicron * 100) / 100,
+         倍率: props.zoomValue,
+         '水平直径(μm)':
+            Math.round(horizontalDiameter * pixelToMicron * 100) / 100,
+         '垂直直径(μm)':
+            Math.round(verticalDiameter * pixelToMicron * 100) / 100,
+         '面积(μm²)':
+            Math.round(area * pixelToMicron * pixelToMicron * 100) / 100,
+         备注: annotation.info || '',
+         标题: '', // 标注数据中没有标题字段，留空
+         颜色: annotation.color,
+         旋转角度: 0, // 标注数据中没有旋转角度字段，默认为0
+      };
+   });
+
+   // 创建工作簿
+   const wb = XLSX.utils.book_new();
+   const ws = XLSX.utils.json_to_sheet(exportData);
+
+   // 设置列宽
+   ws['!cols'] = [
+      { wch: 10 }, // 形状
+      { wch: 12 }, // x坐标
+      { wch: 12 }, // y坐标
+      { wch: 8 }, // 倍率
+      { wch: 15 }, // 水平直径
+      { wch: 15 }, // 垂直直径
+      { wch: 15 }, // 面积
+      { wch: 20 }, // 备注
+      { wch: 15 }, // 标题
+      { wch: 10 }, // 颜色
+      { wch: 10 }, // 旋转角度
+   ];
+
+   XLSX.utils.book_append_sheet(wb, ws, '标注数据');
+
+   // 导出文件
+   const fileName = `标注数据_${new Date()
+      .toLocaleDateString()
+      .replace(/\//g, '-')}.xlsx`;
+   XLSX.writeFile(wb, fileName);
+
+   ElMessage.success('导出成功');
 };
 
 /**

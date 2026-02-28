@@ -145,14 +145,17 @@ const formatPropertyValue = (key: string, value: number | undefined) => {
 
    // 将像素转换为微米（假设比例因子，实际应根据图像分辨率调整）
    const pixelToMicron = 0.46; // 默认比例因子
-   const microns = value * pixelToMicron;
 
    if (key === 'area') {
+      // 面积是二维单位，需要乘以 pixelToMicron²
+      const microns = value * pixelToMicron * pixelToMicron;
       if (microns > 1000000) {
          return `${(microns / 1000000).toFixed(2)} mm²`;
       }
       return `${microns.toFixed(2)} μm²`;
    } else {
+      // 长度是一维单位，乘以 pixelToMicron
+      const microns = value * pixelToMicron;
       if (microns > 1000) {
          return `${(microns / 1000).toFixed(2)} mm`;
       }
