@@ -35,7 +35,7 @@ const calculateDistance = (start: any, end: any): number => {
 };
 
 // 设置viewer光标样式
-const setViewerCursor = (cursorStyle: string) => {
+const setViewerCursor = (_cursorStyle: string) => {
    if (props.viewer?.element) {
       // props.viewer.element.style.cursor = cursorStyle;
    }
@@ -381,7 +381,7 @@ const hiddenRuler = () => {
 // 监听测量模式状态变化，通知父组件
 watch(
    isRulerMode,
-   (newVal) => {
+   (_newVal) => {
       // 向父组件发送测量模式状态变化事件
       // emit('ruler-mode-change', newVal); // 需要在defineEmits中定义
    },

@@ -9,6 +9,7 @@ export {}
 
 declare module '@vue/runtime-core' {
   export interface GlobalComponents {
+    AnnotationMoveToolbar: typeof import('./../src/components/AnnotationMoveToolbar.vue')['default']
     AnnotationPanel: typeof import('./../src/components/AnnotationPanel.vue')['default']
     AnnotationPopup: typeof import('./../src/components/AnnotationPopup.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']

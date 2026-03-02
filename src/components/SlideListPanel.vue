@@ -101,7 +101,7 @@
 import { ElIcon } from 'element-plus';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { useDrag } from 'vue3-dnd';
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive } from 'vue';
 
 interface ImageItem {
    slideName: string;

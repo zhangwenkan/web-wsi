@@ -380,7 +380,8 @@ const handleColorClick = (color: ColorOption, index: number) => {
    // 自定义颜色的处理由颜色选择器通过 @active-change 事件处理
 };
 
-const handleCustomColorChange = (color: string) => {
+const handleCustomColorChange = (color: string | null) => {
+   if (!color) return;
    annotationStore.setCurrentColor(color);
 
    // 仅在移动标注模式下，更新选中标注的颜色
@@ -394,7 +395,8 @@ const handleCustomColorChange = (color: string) => {
    }
 };
 
-const handleCustomColorActiveChange = (color: string) => {
+const handleCustomColorActiveChange = (color: string | null) => {
+   if (!color) return;
    // 颜色选择器打开时，自动应用选中的颜色
    annotationStore.setCurrentColor(color);
    selectedColorIndex.value = colors.value.length - 1; // 选中自定义颜色
@@ -410,7 +412,8 @@ const handleCustomColorActiveChange = (color: string) => {
    }
 };
 
-const handleSquareSizeChange = (value: number) => {
+const handleSquareSizeChange = (value: number | undefined) => {
+   if (value === undefined) return;
    // 如果正在编辑某个标注（备注或移动），阻止操作
    if (isEditing.value) {
       ElMessage.warning('标注编辑尚未完成，请勿进行其他操作！');
@@ -420,7 +423,7 @@ const handleSquareSizeChange = (value: number) => {
    emit('shape-select', 'square'); // 重新设置以应用新尺寸
 };
 
-const handleMultiModeChange = (value: boolean) => {
+const handleMultiModeChange = (value: boolean | string | number) => {
    // 如果正在编辑某个标注（备注或移动），阻止操作
    if (isEditing.value) {
       ElMessage.warning('标注编辑尚未完成，请勿进行其他操作！');
@@ -514,7 +517,7 @@ const handleExportExcel = () => {
    const pixelToMicron = 0.46;
 
    // 准备导出数据
-   const exportData = annotations.value.map((annotation, index) => {
+   const exportData = annotations.value.map((annotation) => {
       const params = annotation.params as any;
       let x = 0,
          y = 0,

@@ -161,6 +161,14 @@
          @edit="handlePopupEdit"
       />
 
+      <!-- 标注移动工具栏 -->
+      <AnnotationMoveToolbar
+         :visible="annotationMoveToolbarVisible"
+         :position="annotationMoveToolbarPosition"
+         @save="handleAnnotationMoveSave"
+         @cancel="handleAnnotationMoveCancel"
+      />
+
       <ScaleBar
          :rate="String(imageInfo.baseInfo.rate)"
          :calibration="String(imageInfo.baseInfo.calibration)"
@@ -198,7 +206,8 @@ import {
 } from '@element-plus/icons-vue';
 import AnnotationPanel from '@/components/AnnotationPanel.vue';
 import AnnotationPopup from '@/components/AnnotationPopup.vue';
-import { CanvasAnnotationEditor } from '@/utils/CanvasAnnotationEditor';
+import AnnotationMoveToolbar from '@/components/AnnotationMoveToolbar.vue';
+import { useAnnotationEditor } from '@/composables/useAnnotationEditor';
 import { useAnnotationStore } from '@/store/modules/annotation';
 
 // 图像列表
@@ -328,11 +337,15 @@ const imageInfo = reactive({
 });
 
 const viewer = shallowRef<any>(null);
-let playTimer: any = null;
 let initialZoom = 1; // 记录初始缩放级别
 let canvasOverlay: HTMLCanvasElement | null = null; // Canvas 覆盖层
-let annotationEditor: CanvasAnnotationEditor | null = null; // 标注编辑器实例
-let navigatingAnnotationId: string | null = null; // 正在跳转的标注 ID
+
+// 使用标注编辑器 composable
+const annotationEditor = useAnnotationEditor();
+
+// 移动工具栏状态
+const annotationMoveToolbarVisible = ref(false);
+const annotationMoveToolbarPosition = ref({ left: 0, top: 0 });
 
 const slideListPanelRef = ref<InstanceType<typeof SlideListPanel> | null>(null);
 const rulerMeasureRef = shallowRef<InstanceType<typeof RulerMeasure> | null>(
@@ -340,9 +353,6 @@ const rulerMeasureRef = shallowRef<InstanceType<typeof RulerMeasure> | null>(
 );
 
 // 响应式变量
-const isPlaying = ref(false);
-const playInterval = ref(2000);
-const playDirection = ref('forward');
 const zoomValue = ref(1);
 const zoomPercent = ref(100);
 const slideListVisible = ref(false); // 切片列表面板是否可见
@@ -420,15 +430,26 @@ const initAnnotation = () => {
       }
    }
 
-   // 初始化 CanvasAnnotationEditor
+   // 初始化标注编辑器 (使用 composable)
    const viewerContainer = document.getElementById('openseadragon1');
    if (canvasOverlay && viewerContainer && viewer.value) {
       // 销毁旧的实例
-      if (annotationEditor) {
-         annotationEditor.destroy();
-      }
+      annotationEditor.destroy();
 
-      annotationEditor = new CanvasAnnotationEditor();
+      // 设置移动工具栏回调
+      annotationEditor.setMoveToolbarCallbacks({
+         onShow: (position) => {
+            annotationMoveToolbarPosition.value = position;
+            annotationMoveToolbarVisible.value = true;
+         },
+         onHide: () => {
+            annotationMoveToolbarVisible.value = false;
+         },
+         onUpdate: (position) => {
+            annotationMoveToolbarPosition.value = position;
+         },
+      });
+
       annotationEditor.init(canvasOverlay, viewer.value, viewerContainer, {
          allowMulti: annotationStore.isMultiMode,
          onEdit: (annotations) => {
@@ -664,9 +685,9 @@ const initOpenSeadragon = () => {
       }
    });
 
-   // 监听动画完成事件，清除跳转标注标记
+   // 监听动画完成事件
    viewer.value.addHandler('animation-finish', function () {
-      navigatingAnnotationId = null;
+      // 动画完成
    });
 };
 
@@ -700,44 +721,6 @@ const selectImage = (index: number) => {
    }
 };
 
-// 播放/暂停
-const togglePlay = () => {
-   isPlaying.value = !isPlaying.value;
-
-   if (isPlaying.value) {
-      startPlay();
-   } else {
-      stopPlay();
-   }
-};
-
-// 开始播放
-const startPlay = () => {
-   if (playTimer) clearInterval(playTimer);
-
-   playTimer = setInterval(() => {
-      if (slideListPanelRef.value) {
-         const currentIndex = slideListPanelRef.value.getCurrentIndex();
-         let newIndex;
-         if (playDirection.value === 'forward') {
-            newIndex = (currentIndex + 1) % imageList.length;
-         } else {
-            newIndex = (currentIndex - 1 + imageList.length) % imageList.length;
-         }
-         slideListPanelRef.value.setCurrentIndex(newIndex);
-         initOpenSeadragon();
-      }
-   }, playInterval.value);
-};
-
-// 停止播放
-const stopPlay = () => {
-   if (playTimer) {
-      clearInterval(playTimer);
-      playTimer = null;
-   }
-};
-
 // 设置缩放倍数级别
 const setZoomLevel = (level: number) => {
    if (viewer.value && initialZoom > 0) {
@@ -760,11 +743,9 @@ const toggleSlideList = () => {
 const toggleRulerMode = () => {
    if (rulerMeasureRef.value) {
       // 在切换模式前，先取消当前的绘制状态和选中状态
-      if (annotationEditor) {
-         annotationEditor.cancelDraw();
-         annotationEditor.clearSelection();
-         console.log('切换测量模式前，已取消绘制状态和选中状态');
-      }
+      annotationEditor.cancelDraw();
+      annotationEditor.clearSelection();
+      console.log('切换测量模式前，已取消绘制状态和选中状态');
 
       // 清除 store 中的选中状态
       annotationStore.setSelectedIndex(null);
@@ -780,16 +761,12 @@ const toggleRulerMode = () => {
       // 现在检查切换后的状态并相应地启用/禁用标注事件
       if (!rulerMeasureRef.value.isRulerMode) {
          // 切换后不是测量模式，说明退出了测量模式，恢复标注事件
-         if (annotationEditor) {
-            annotationEditor.enableEvents();
-            console.log('测量模式退出，已恢复标注事件');
-         }
+         annotationEditor.enableEvents();
+         console.log('测量模式退出，已恢复标注事件');
       } else {
          // 切换后是测量模式，说明进入了测量模式，禁用标注事件
-         if (annotationEditor) {
-            annotationEditor.disableEvents();
-            console.log('测量模式进入，已禁用标注事件');
-         }
+         annotationEditor.disableEvents();
+         console.log('测量模式进入，已禁用标注事件');
       }
    }
 };
@@ -798,7 +775,7 @@ const toggleRulerMode = () => {
 const toggleAnnotation = () => {
    annotationVisible.value = !annotationVisible.value;
    // 如果关闭标注面板，取消当前的绘制状态
-   if (!annotationVisible.value && annotationEditor) {
+   if (!annotationVisible.value) {
       annotationEditor.cancelDraw();
       console.log('关闭标注面板，已取消绘制状态');
    }
@@ -815,25 +792,21 @@ const handleShapeSelect = (type: any) => {
 
    // 关闭现有 popup
    annotationPopupVisible.value = false;
-   if (annotationEditor) {
-      // 如果是正方形，传递尺寸参数
-      if (type === 'square') {
-         annotationEditor.setDrawType(type, annotationStore.squareSize);
-      } else {
-         annotationEditor.setDrawType(type);
-      }
-      // 同步颜色到AnnotationEditor
-      annotationEditor.setCurrentColor(annotationStore.currentColor);
+   // 如果是正方形，传递尺寸参数
+   if (type === 'square') {
+      annotationEditor.setDrawType(type, annotationStore.squareSize);
+   } else {
+      annotationEditor.setDrawType(type);
    }
+   // 同步颜色到AnnotationEditor
+   annotationEditor.setCurrentColor(annotationStore.currentColor);
 };
 
 // 监听store颜色变化并同步到AnnotationEditor
 watch(
    () => annotationStore.currentColor,
    (newColor) => {
-      if (annotationEditor) {
-         annotationEditor.setCurrentColor(newColor);
-      }
+      annotationEditor.setCurrentColor(newColor);
    }
 );
 
@@ -841,17 +814,15 @@ watch(
 watch(
    () => annotationStore.isMultiMode,
    (newVal) => {
-      if (annotationEditor) {
-         annotationEditor.setAllowMulti(newVal);
-         console.log('连续标注模式已更新:', newVal);
-      }
+      annotationEditor.setAllowMulti(newVal);
+      console.log('连续标注模式已更新:', newVal);
    }
 );
 
 const handleAnnotationSelect = (annotation: any) => {
    console.log('选择标注:', annotation);
 
-   if (annotationEditor && annotation && viewer.value) {
+   if (annotation && viewer.value) {
       // 获取标注的图像坐标中心点
       const center = annotationEditor.getAnnotationCenter(annotation.id);
       if (center) {
@@ -859,9 +830,6 @@ const handleAnnotationSelect = (annotation: any) => {
          const viewportPoint = viewer.value.viewport.imageToViewportCoordinates(
             new OpenSeadragon.Point(center.x, center.y)
          );
-
-         // 设置正在跳转的标注 ID，用于动画过程中更新 popup 位置
-         navigatingAnnotationId = annotation.id;
 
          // 平滑移动到标注位置（false 表示使用动画过渡）
          viewer.value.viewport.panTo(viewportPoint, false);
@@ -874,50 +842,44 @@ const handleAnnotationSelect = (annotation: any) => {
 
 const handleAnnotationMoveStart = (annotation: any) => {
    // 进入标注移动模式
-   if (annotationEditor && annotation) {
+   if (annotation) {
       // 关闭标注信息弹窗
       annotationPopupVisible.value = false;
       annotationEditor.startMoveAnnotation(annotation.id);
    }
 };
 
-const handleAnnotationMoveSave = (annotation: any) => {
+const handleAnnotationMoveSave = () => {
    // 保存标注移动
-   if (annotationEditor && annotation) {
-      annotationEditor.saveMoveAnnotation();
-   }
+   annotationEditor.saveMoveAnnotation();
 };
 
 const handleAnnotationMoveCancel = () => {
    // 取消标注移动
-   if (annotationEditor) {
-      annotationEditor.cancelMoveAnnotation();
+   annotationEditor.cancelMoveAnnotation();
+};
+
+const handlePopupEdit = (annotation: any) => {
+   // 进入标注移动模式
+   if (annotation) {
+      // 关闭标注信息弹窗
+      annotationPopupVisible.value = false;
+      annotationEditor.startMoveAnnotation(annotation.id);
    }
 };
 
 const handleAnnotationColorChange = () => {
    // 标注颜色改变，重新渲染
-   if (annotationEditor) {
-      annotationEditor.render();
-   }
+   annotationEditor.render();
 };
 
 const handlePopupDelete = () => {
-   if (annotationPopupParams.value?.annotation && annotationEditor) {
+   if (annotationPopupParams.value?.annotation) {
       annotationEditor.deleteAnnotation(
          annotationPopupParams.value.annotation.id
       );
    }
    annotationPopupVisible.value = false;
-};
-
-const handlePopupEdit = (annotation: any) => {
-   // 进入标注移动模式
-   if (annotationEditor && annotation) {
-      // 关闭标注信息弹窗
-      annotationPopupVisible.value = false;
-      annotationEditor.startMoveAnnotation(annotation.id);
-   }
 };
 
 // 复位切片列表
@@ -986,18 +948,11 @@ onUnmounted(() => {
       viewer.value = null;
    }
 
-   if (annotationEditor) {
-      annotationEditor.destroy();
-      annotationEditor = null;
-   }
+   annotationEditor.destroy();
 
    if (canvasOverlay && canvasOverlay.parentNode) {
       canvasOverlay.parentNode.removeChild(canvasOverlay);
       canvasOverlay = null;
-   }
-
-   if (playTimer) {
-      clearInterval(playTimer);
    }
 
    window.removeEventListener('keydown', handleKeyDown);
