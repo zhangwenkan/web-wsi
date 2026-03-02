@@ -98,6 +98,9 @@ export interface AnnotationEditorOptions {
    deleteAnnotationApi?: (id: string) => Promise<any>; // 删除标注API
    onShowAnnotationPopup?: (params: PopupParams) => void; // 显示标注弹窗回调
    onAnnotationSelected?: (annotation: Annotation | null) => void; // 标注选中回调
+   onMoveToolbarShow?: (position: { left: number; top: number }) => void; // 显示移动工具栏回调
+   onMoveToolbarHide?: () => void; // 隐藏移动工具栏回调
+   onMoveToolbarUpdate?: (position: { left: number; top: number }) => void; // 更新移动工具栏位置回调
 }
 
 // 弹窗参数

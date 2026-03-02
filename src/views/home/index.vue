@@ -436,22 +436,18 @@ const initAnnotation = () => {
       // 销毁旧的实例
       annotationEditor.destroy();
 
-      // 设置移动工具栏回调
-      annotationEditor.setMoveToolbarCallbacks({
-         onShow: (position) => {
+      annotationEditor.init(canvasOverlay, viewer.value, viewerContainer, {
+         allowMulti: annotationStore.isMultiMode,
+         onMoveToolbarShow: (position) => {
             annotationMoveToolbarPosition.value = position;
             annotationMoveToolbarVisible.value = true;
          },
-         onHide: () => {
+         onMoveToolbarHide: () => {
             annotationMoveToolbarVisible.value = false;
          },
-         onUpdate: (position) => {
+         onMoveToolbarUpdate: (position) => {
             annotationMoveToolbarPosition.value = position;
          },
-      });
-
-      annotationEditor.init(canvasOverlay, viewer.value, viewerContainer, {
-         allowMulti: annotationStore.isMultiMode,
          onEdit: (annotations) => {
             // 标注更新时的回调
             // 检测是否是新添加的标注（通过长度变化）

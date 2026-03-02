@@ -3,7 +3,6 @@ import { ref, computed } from 'vue';
 import type {
    Annotation,
    AnnotationType,
-   ColorOption,
 } from '@/types/annotation';
 import { DefaultColors, DefaultShapes } from '@/types/annotation';
 
