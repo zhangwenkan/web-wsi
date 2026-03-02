@@ -1,0 +1,7 @@
+{
+   "*.{js,jsx,ts,tsx}": ["eslint --fix || true", "prettier --write || true"],
+   "{!(package)*.json,*.code-snippets,.!(browserslist)*rc}": ["prettier --write --parser json || true"],
+   "*.vue": ["eslint --fix || true", "prettier --write || true", "stylelint --fix --allow-empty-input || true"],
+   "*.{scss,less,styl,html}": ["stylelint --fix --allow-empty-input || true", "prettier --write || true"],
+   "*.md": ["prettier --write || true"]
+}
