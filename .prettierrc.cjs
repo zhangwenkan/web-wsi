@@ -4,5 +4,5 @@ module.exports = {
    useTabs: false, //使用空格代替tab缩进
    semi: true, //句末使用分号
    singleQuote: true, //使用单引号
-   endOfLine: 'lf', // 统一使用LF换行符
+   endOfLine: 'crlf', // Windows使用CRLF换行符
 };

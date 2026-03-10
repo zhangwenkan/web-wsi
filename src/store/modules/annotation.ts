@@ -1,9 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type {
-   Annotation,
-   AnnotationType,
-} from '@/types/annotation';
+import type { Annotation, AnnotationType } from '@/types/annotation';
 import { DefaultColors, DefaultShapes } from '@/types/annotation';
 
 export const useAnnotationStore = defineStore('annotation', () => {

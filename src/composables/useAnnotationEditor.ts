@@ -98,10 +98,15 @@ export function useAnnotationEditor() {
    let renderRequested = false;
 
    // 控制点相关
-   const controlPoints = ref<Array<{ x: number; y: number; type: string; index?: number }>>([]);
+   const controlPoints = ref<
+      Array<{ x: number; y: number; type: string; index?: number }>
+   >([]);
    const activeControlPoint = ref<number | null>(null);
    const isDraggingControlPoint = ref(false);
-   const draggingControlPointInfo = ref<{ type: string; index?: number } | null>(null);
+   const draggingControlPointInfo = ref<{
+      type: string;
+      index?: number;
+   } | null>(null);
    const ellipseOriginalRatio = ref(1);
 
    // ============ 初始化和销毁 ============
@@ -142,10 +147,15 @@ export function useAnnotationEditor() {
       canvas.value.addEventListener('mousemove', handleMouseMoveBound);
       canvas.value.addEventListener('mouseup', handleMouseUpBound);
       canvas.value.addEventListener('dblclick', handleDoubleClickBound);
-      canvas.value.addEventListener('wheel', handleWheelBound, { passive: false });
+      canvas.value.addEventListener('wheel', handleWheelBound, {
+         passive: false,
+      });
 
       // 绑定 viewerContainer 的鼠标移动事件
-      viewerContainer.value.addEventListener('mousemove', handleViewerMouseMoveBound);
+      viewerContainer.value.addEventListener(
+         'mousemove',
+         handleViewerMouseMoveBound
+      );
 
       // 绑定键盘事件
       document.addEventListener('keydown', handleKeyDownBound);
@@ -175,7 +185,10 @@ export function useAnnotationEditor() {
       }
 
       if (viewerContainer.value) {
-         viewerContainer.value.removeEventListener('mousemove', handleViewerMouseMoveBound);
+         viewerContainer.value.removeEventListener(
+            'mousemove',
+            handleViewerMouseMoveBound
+         );
       }
 
       document.removeEventListener('keydown', handleKeyDownBound);
@@ -259,12 +272,12 @@ export function useAnnotationEditor() {
          }
 
          setCursor('default');
-         
+
          // 通知外部隐藏工具栏
          if (options.value.onMoveToolbarHide) {
             options.value.onMoveToolbarHide();
          }
-         
+
          render();
 
          if (options.value.onEdit) {
@@ -275,7 +288,9 @@ export function useAnnotationEditor() {
 
    const cancelMoveAnnotation = () => {
       if (movingAnnotationId.value && originalAnnotationData.value) {
-         const index = annotations.value.findIndex((a) => a.id === movingAnnotationId.value);
+         const index = annotations.value.findIndex(
+            (a) => a.id === movingAnnotationId.value
+         );
          if (index !== -1) {
             annotations.value[index] = originalAnnotationData.value;
          }
@@ -288,12 +303,12 @@ export function useAnnotationEditor() {
          }
 
          setCursor('default');
-         
+
          // 通知外部隐藏工具栏
          if (options.value.onMoveToolbarHide) {
             options.value.onMoveToolbarHide();
          }
-         
+
          render();
       }
    };
@@ -401,7 +416,9 @@ export function useAnnotationEditor() {
       }
    };
 
-   const getAnnotationCenter = (annotationId: string): { x: number; y: number } | null => {
+   const getAnnotationCenter = (
+      annotationId: string
+   ): { x: number; y: number } | null => {
       const annotation = annotations.value.find((a) => a.id === annotationId);
       if (!annotation) return null;
 
@@ -411,21 +428,38 @@ export function useAnnotationEditor() {
          case 'marker':
             return { x: params.x, y: params.y };
          case 'line':
-            return { x: (params.x1 + params.x2) / 2, y: (params.y1 + params.y2) / 2 };
+            return {
+               x: (params.x1 + params.x2) / 2,
+               y: (params.y1 + params.y2) / 2,
+            };
          case 'circle':
             return { x: params.cx, y: params.cy };
          case 'ellipse':
             return { x: params.cx, y: params.cy };
          case 'rect':
-            return { x: params.x + params.width / 2, y: params.y + params.height / 2 };
+            return {
+               x: params.x + params.width / 2,
+               y: params.y + params.height / 2,
+            };
          case 'square':
-            return { x: params.x + params.side / 2, y: params.y + params.side / 2 };
+            return {
+               x: params.x + params.side / 2,
+               y: params.y + params.side / 2,
+            };
          case 'polygon':
          case 'freehand': {
             const points = params.points || [];
             if (points.length === 0) return null;
-            const centerX = points.reduce((sum: number, p: { x: number; y: number }) => sum + p.x, 0) / points.length;
-            const centerY = points.reduce((sum: number, p: { x: number; y: number }) => sum + p.y, 0) / points.length;
+            const centerX =
+               points.reduce(
+                  (sum: number, p: { x: number; y: number }) => sum + p.x,
+                  0
+               ) / points.length;
+            const centerY =
+               points.reduce(
+                  (sum: number, p: { x: number; y: number }) => sum + p.y,
+                  0
+               ) / points.length;
             return { x: centerX, y: centerY };
          }
          default:
@@ -570,13 +604,19 @@ export function useAnnotationEditor() {
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
 
-      const viewportPoint = viewer.value.viewport.pointFromPixel(new OpenSeadragon.Point(x, y));
-      const imagePoint = viewer.value.viewport.viewportToImageCoordinates(viewportPoint);
+      const viewportPoint = viewer.value.viewport.pointFromPixel(
+         new OpenSeadragon.Point(x, y)
+      );
+      const imagePoint =
+         viewer.value.viewport.viewportToImageCoordinates(viewportPoint);
 
       return { x: imagePoint.x, y: imagePoint.y };
    };
 
-   const getScreenPoint = (imagePoint: { x: number; y: number }): { x: number; y: number } => {
+   const getScreenPoint = (imagePoint: {
+      x: number;
+      y: number;
+   }): { x: number; y: number } => {
       if (!viewer.value) return { x: 0, y: 0 };
 
       const screenPoint = viewer.value.viewport.imageToViewerElementCoordinates(
@@ -585,7 +625,10 @@ export function useAnnotationEditor() {
       return { x: screenPoint.x, y: screenPoint.y };
    };
 
-   const getViewportPoint = (imagePoint: { x: number; y: number }): { x: number; y: number } => {
+   const getViewportPoint = (imagePoint: {
+      x: number;
+      y: number;
+   }): { x: number; y: number } => {
       const screenPoint = getScreenPoint(imagePoint);
       const containerRect = viewerContainer.value?.getBoundingClientRect();
       const offsetX = containerRect?.left || 0;
@@ -597,7 +640,9 @@ export function useAnnotationEditor() {
 
    const handleMouseDown = (e: MouseEvent): void => {
       if (movingAnnotationId.value) {
-         const annotation = annotations.value.find((a) => a.id === movingAnnotationId.value);
+         const annotation = annotations.value.find(
+            (a) => a.id === movingAnnotationId.value
+         );
          if (annotation) {
             const rect = canvas.value?.getBoundingClientRect();
             if (!rect) return;
@@ -610,11 +655,15 @@ export function useAnnotationEditor() {
                activeControlPoint.value = controlPointIndex;
                isDraggingControlPoint.value = true;
                const cp = controlPoints.value[controlPointIndex];
-               draggingControlPointInfo.value = { type: cp.type, index: cp.index };
+               draggingControlPointInfo.value = {
+                  type: cp.type,
+                  index: cp.index,
+               };
 
                if (annotation.type === 'ellipse') {
                   const params = annotation.params as any;
-                  ellipseOriginalRatio.value = params.ry > 0 ? params.rx / params.ry : 1;
+                  ellipseOriginalRatio.value =
+                     params.ry > 0 ? params.rx / params.ry : 1;
                }
                return;
             }
@@ -669,8 +718,14 @@ export function useAnnotationEditor() {
          return;
       }
 
-      if (isDragging.value && movingAnnotationId.value && movingAnnotationOffset.value) {
-         const annotation = annotations.value.find((a) => a.id === movingAnnotationId.value);
+      if (
+         isDragging.value &&
+         movingAnnotationId.value &&
+         movingAnnotationOffset.value
+      ) {
+         const annotation = annotations.value.find(
+            (a) => a.id === movingAnnotationId.value
+         );
          if (annotation) {
             const pt = getImagePoint(e);
             const dx = pt.x - movingAnnotationOffset.value.x;
@@ -785,7 +840,10 @@ export function useAnnotationEditor() {
       e.stopPropagation();
 
       const rect = viewerContainer.value!.getBoundingClientRect();
-      const point = new OpenSeadragon.Point(e.clientX - rect.left, e.clientY - rect.top);
+      const point = new OpenSeadragon.Point(
+         e.clientX - rect.left,
+         e.clientY - rect.top
+      );
 
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
       const viewportPoint = viewer.value.viewport.pointFromPixel(point);
@@ -813,8 +871,13 @@ export function useAnnotationEditor() {
             if (controlPointIndex !== null) {
                setCursor('nwse-resize');
             } else {
-               const annotation = annotations.value.find((a) => a.id === movingAnnotationId.value);
-               if (annotation && isPointInAnnotation(mouseX, mouseY, annotation)) {
+               const annotation = annotations.value.find(
+                  (a) => a.id === movingAnnotationId.value
+               );
+               if (
+                  annotation &&
+                  isPointInAnnotation(mouseX, mouseY, annotation)
+               ) {
                   setCursor('move');
                } else {
                   setCursor('default');
@@ -871,7 +934,9 @@ export function useAnnotationEditor() {
    const handleControlPointDrag = (e: MouseEvent) => {
       if (!movingAnnotationId.value || !draggingControlPointInfo.value) return;
 
-      const annotation = annotations.value.find((a) => a.id === movingAnnotationId.value);
+      const annotation = annotations.value.find(
+         (a) => a.id === movingAnnotationId.value
+      );
       if (!annotation) return;
 
       const pt = getImagePoint(e);
@@ -925,7 +990,10 @@ export function useAnnotationEditor() {
                   oppositeCorner = { x: params.x + params.width, y: params.y };
                   break;
                case 2:
-                  oppositeCorner = { x: params.x + params.width, y: params.y + params.height };
+                  oppositeCorner = {
+                     x: params.x + params.width,
+                     y: params.y + params.height,
+                  };
                   break;
                case 3:
                   oppositeCorner = { x: params.x, y: params.y + params.height };
@@ -950,7 +1018,10 @@ export function useAnnotationEditor() {
          case 'square': {
             if (controlPoint.index === undefined) break;
             const minSize = 10;
-            const center = { x: params.x + params.side / 2, y: params.y + params.side / 2 };
+            const center = {
+               x: params.x + params.side / 2,
+               y: params.y + params.side / 2,
+            };
 
             const dx = pt.x - center.x;
             const dy = pt.y - center.y;
@@ -1000,7 +1071,11 @@ export function useAnnotationEditor() {
 
    // ============ 碰撞检测 ============
 
-   const isPointInAnnotation = (x: number, y: number, annotation: Annotation): boolean => {
+   const isPointInAnnotation = (
+      x: number,
+      y: number,
+      annotation: Annotation
+   ): boolean => {
       const params = annotation.params as any;
 
       switch (annotation.type) {
@@ -1024,7 +1099,11 @@ export function useAnnotationEditor() {
       }
    };
 
-   const isPointInMarker = (x: number, y: number, params: MarkerParams): boolean => {
+   const isPointInMarker = (
+      x: number,
+      y: number,
+      params: MarkerParams
+   ): boolean => {
       const screenPt = getScreenPoint(params);
       const markerSize = 21;
       const dx = x - screenPt.x;
@@ -1032,7 +1111,11 @@ export function useAnnotationEditor() {
       return Math.sqrt(dx * dx + dy * dy) < markerSize;
    };
 
-   const isPointNearLine = (x: number, y: number, params: LineParams): boolean => {
+   const isPointNearLine = (
+      x: number,
+      y: number,
+      params: LineParams
+   ): boolean => {
       const pt1 = getScreenPoint({ x: params.x1, y: params.y1 });
       const pt2 = getScreenPoint({ x: params.x2, y: params.y2 });
 
@@ -1067,9 +1150,16 @@ export function useAnnotationEditor() {
       return distance < 10;
    };
 
-   const isPointInCircle = (x: number, y: number, params: CircleParams): boolean => {
+   const isPointInCircle = (
+      x: number,
+      y: number,
+      params: CircleParams
+   ): boolean => {
       const center = getScreenPoint({ x: params.cx, y: params.cy });
-      const radiusPt = getScreenPoint({ x: params.cx + params.r, y: params.cy });
+      const radiusPt = getScreenPoint({
+         x: params.cx + params.r,
+         y: params.cy,
+      });
       const radius = Math.abs(radiusPt.x - center.x);
 
       const dx = x - center.x;
@@ -1077,10 +1167,20 @@ export function useAnnotationEditor() {
       return Math.sqrt(dx * dx + dy * dy) <= radius;
    };
 
-   const isPointInEllipse = (x: number, y: number, params: EllipseParams): boolean => {
+   const isPointInEllipse = (
+      x: number,
+      y: number,
+      params: EllipseParams
+   ): boolean => {
       const center = getScreenPoint({ x: params.cx, y: params.cy });
-      const rxScreen = getScreenPoint({ x: params.cx + params.rx, y: params.cy });
-      const ryScreen = getScreenPoint({ x: params.cx, y: params.cy + params.ry });
+      const rxScreen = getScreenPoint({
+         x: params.cx + params.rx,
+         y: params.cy,
+      });
+      const ryScreen = getScreenPoint({
+         x: params.cx,
+         y: params.cy + params.ry,
+      });
 
       const rx = Math.abs(rxScreen.x - center.x);
       const ry = Math.abs(ryScreen.y - center.y);
@@ -1091,11 +1191,27 @@ export function useAnnotationEditor() {
       return (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1;
    };
 
-   const isPointInRect = (x: number, y: number, params: RectParams | SquareParams): boolean => {
-      const xVal = (params as RectParams).x !== undefined ? (params as RectParams).x : (params as SquareParams).x;
-      const yVal = (params as RectParams).y !== undefined ? (params as RectParams).y : (params as SquareParams).y;
-      const widthVal = (params as RectParams).width !== undefined ? (params as RectParams).width : (params as SquareParams).side;
-      const heightVal = (params as RectParams).height !== undefined ? (params as RectParams).height : (params as SquareParams).side;
+   const isPointInRect = (
+      x: number,
+      y: number,
+      params: RectParams | SquareParams
+   ): boolean => {
+      const xVal =
+         (params as RectParams).x !== undefined
+            ? (params as RectParams).x
+            : (params as SquareParams).x;
+      const yVal =
+         (params as RectParams).y !== undefined
+            ? (params as RectParams).y
+            : (params as SquareParams).y;
+      const widthVal =
+         (params as RectParams).width !== undefined
+            ? (params as RectParams).width
+            : (params as SquareParams).side;
+      const heightVal =
+         (params as RectParams).height !== undefined
+            ? (params as RectParams).height
+            : (params as SquareParams).side;
 
       const start = getScreenPoint({ x: xVal, y: yVal });
       const end = getScreenPoint({ x: xVal + widthVal, y: yVal + heightVal });
@@ -1108,17 +1224,26 @@ export function useAnnotationEditor() {
       return x >= minX && x <= maxX && y >= minY && y <= maxY;
    };
 
-   const isPointInPolygon = (x: number, y: number, params: PolygonParams): boolean => {
+   const isPointInPolygon = (
+      x: number,
+      y: number,
+      params: PolygonParams
+   ): boolean => {
       const screenPoints = params.points.map((p) => getScreenPoint(p));
 
       let inside = false;
-      for (let i = 0, j = screenPoints.length - 1; i < screenPoints.length; j = i++) {
+      for (
+         let i = 0, j = screenPoints.length - 1;
+         i < screenPoints.length;
+         j = i++
+      ) {
          const xi = screenPoints[i].x,
             yi = screenPoints[i].y;
          const xj = screenPoints[j].x,
             yj = screenPoints[j].y;
 
-         const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+         const intersect =
+            yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
 
          if (intersect) inside = !inside;
       }
@@ -1126,17 +1251,26 @@ export function useAnnotationEditor() {
       return inside;
    };
 
-   const isPointInFreehand = (x: number, y: number, params: FreehandParams): boolean => {
+   const isPointInFreehand = (
+      x: number,
+      y: number,
+      params: FreehandParams
+   ): boolean => {
       const screenPoints = params.points.map((p) => getScreenPoint(p));
 
       let inside = false;
-      for (let i = 0, j = screenPoints.length - 1; i < screenPoints.length; j = i++) {
+      for (
+         let i = 0, j = screenPoints.length - 1;
+         i < screenPoints.length;
+         j = i++
+      ) {
          const xi = screenPoints[i].x,
             yi = screenPoints[i].y;
          const xj = screenPoints[j].x,
             yj = screenPoints[j].y;
 
-         const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+         const intersect =
+            yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
 
          if (intersect) inside = !inside;
       }
@@ -1147,7 +1281,10 @@ export function useAnnotationEditor() {
    // ============ 绘制方法 ============
 
    // Marker
-   const handleMarkerMouseDown = (e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleMarkerMouseDown = (
+      e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       e.stopPropagation();
       markerPosition.value = pt;
       finishMarkerDraw();
@@ -1163,7 +1300,10 @@ export function useAnnotationEditor() {
          type: 'marker',
          color: currentColor.value,
          info: '',
-         params: { x: markerPosition.value.x, y: markerPosition.value.y } as MarkerParams,
+         params: {
+            x: markerPosition.value.x,
+            y: markerPosition.value.y,
+         } as MarkerParams,
       };
 
       addAnnotation(annotation);
@@ -1176,20 +1316,29 @@ export function useAnnotationEditor() {
    };
 
    // Line
-   const handleLineMouseDown = (e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleLineMouseDown = (
+      e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       e.stopPropagation();
       drawing.value = true;
       lineStart.value = pt;
       lineEnd.value = pt;
    };
 
-   const handleLineMouseMove = (_e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleLineMouseMove = (
+      _e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       if (!drawing.value) return;
       lineEnd.value = pt;
       requestRender();
    };
 
-   const handleLineMouseUp = (_e: MouseEvent, _pt: { x: number; y: number }) => {
+   const handleLineMouseUp = (
+      _e: MouseEvent,
+      _pt: { x: number; y: number }
+   ) => {
       if (!drawing.value) return;
       drawing.value = false;
       finishLineDraw();
@@ -1222,14 +1371,20 @@ export function useAnnotationEditor() {
    };
 
    // Circle
-   const handleCircleMouseDown = (e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleCircleMouseDown = (
+      e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       e.stopPropagation();
       drawing.value = true;
       circleCenter.value = pt;
       circleRadius.value = 0;
    };
 
-   const handleCircleMouseMove = (_e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleCircleMouseMove = (
+      _e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       if (!drawing.value || !circleCenter.value) return;
 
       const dx = pt.x - circleCenter.value.x;
@@ -1239,7 +1394,10 @@ export function useAnnotationEditor() {
       requestRender();
    };
 
-   const handleCircleMouseUp = (_e: MouseEvent, _pt: { x: number; y: number }) => {
+   const handleCircleMouseUp = (
+      _e: MouseEvent,
+      _pt: { x: number; y: number }
+   ) => {
       if (!drawing.value) return;
       drawing.value = false;
       finishCircleDraw();
@@ -1271,7 +1429,10 @@ export function useAnnotationEditor() {
    };
 
    // Rect
-   const handleRectMouseDown = (e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleRectMouseDown = (
+      e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       e.stopPropagation();
       drawing.value = true;
       rectStart.value = pt;
@@ -1279,7 +1440,10 @@ export function useAnnotationEditor() {
       rectHeight.value = 0;
    };
 
-   const handleRectMouseMove = (_e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleRectMouseMove = (
+      _e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       if (!drawing.value || !rectStart.value) return;
 
       rectWidth.value = Math.abs(pt.x - rectStart.value.x);
@@ -1288,14 +1452,22 @@ export function useAnnotationEditor() {
       requestRender();
    };
 
-   const handleRectMouseUp = (_e: MouseEvent, _pt: { x: number; y: number }) => {
+   const handleRectMouseUp = (
+      _e: MouseEvent,
+      _pt: { x: number; y: number }
+   ) => {
       if (!drawing.value) return;
       drawing.value = false;
       finishRectDraw();
    };
 
    const finishRectDraw = () => {
-      if (!rectStart.value || rectWidth.value === null || rectHeight.value === null) return;
+      if (
+         !rectStart.value ||
+         rectWidth.value === null ||
+         rectHeight.value === null
+      )
+         return;
 
       const annotation: Annotation = {
          id: String(nextId.value++),
@@ -1304,7 +1476,10 @@ export function useAnnotationEditor() {
          info: '',
          params: {
             x: Math.min(rectStart.value.x, rectStart.value.x + rectWidth.value),
-            y: Math.min(rectStart.value.y, rectStart.value.y + rectHeight.value),
+            y: Math.min(
+               rectStart.value.y,
+               rectStart.value.y + rectHeight.value
+            ),
             width: rectWidth.value,
             height: rectHeight.value,
          } as RectParams,
@@ -1322,13 +1497,19 @@ export function useAnnotationEditor() {
    };
 
    // Ellipse
-   const handleEllipseMouseDown = (e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleEllipseMouseDown = (
+      e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       e.stopPropagation();
       drawing.value = true;
       ellipseCenter.value = pt;
    };
 
-   const handleEllipseMouseMove = (_e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleEllipseMouseMove = (
+      _e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       if (!drawing.value || !ellipseCenter.value) return;
       const dx = Math.abs(pt.x - ellipseCenter.value.x);
       const dy = Math.abs(pt.y - ellipseCenter.value.y);
@@ -1337,14 +1518,22 @@ export function useAnnotationEditor() {
       requestRender();
    };
 
-   const handleEllipseMouseUp = (_e: MouseEvent, _pt: { x: number; y: number }) => {
+   const handleEllipseMouseUp = (
+      _e: MouseEvent,
+      _pt: { x: number; y: number }
+   ) => {
       if (!drawing.value) return;
       drawing.value = false;
       finishEllipseDraw();
    };
 
    const finishEllipseDraw = () => {
-      if (!ellipseCenter.value || ellipseRadiusX.value === null || ellipseRadiusY.value === null) return;
+      if (
+         !ellipseCenter.value ||
+         ellipseRadiusX.value === null ||
+         ellipseRadiusY.value === null
+      )
+         return;
 
       const annotation: Annotation = {
          id: String(nextId.value++),
@@ -1371,7 +1560,10 @@ export function useAnnotationEditor() {
    };
 
    // Square
-   const handleSquareMouseDown = (e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleSquareMouseDown = (
+      e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       e.stopPropagation();
       drawing.value = true;
       squareStart.value = pt;
@@ -1379,7 +1571,10 @@ export function useAnnotationEditor() {
 
    const handleSquareMouseMove = () => {};
 
-   const handleSquareMouseUp = (_e: MouseEvent, _pt: { x: number; y: number }) => {
+   const handleSquareMouseUp = (
+      _e: MouseEvent,
+      _pt: { x: number; y: number }
+   ) => {
       if (!drawing.value) return;
       drawing.value = false;
       finishSquareDraw();
@@ -1410,7 +1605,10 @@ export function useAnnotationEditor() {
    };
 
    // Polygon
-   const handlePolygonMouseDown = (e: MouseEvent, pt: { x: number; y: number }) => {
+   const handlePolygonMouseDown = (
+      e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       e.stopPropagation();
 
       if (polygonPoints.value.length >= 3) {
@@ -1436,13 +1634,19 @@ export function useAnnotationEditor() {
       requestRender();
    };
 
-   const handlePolygonMouseMove = (_e: MouseEvent, pt: { x: number; y: number }) => {
+   const handlePolygonMouseMove = (
+      _e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       if (!drawing.value || polygonPoints.value.length === 0) return;
       polygonPreviewPoint.value = pt;
       requestRender();
    };
 
-   const handlePolygonMouseUp = (_e: MouseEvent, _pt: { x: number; y: number }) => {}
+   const handlePolygonMouseUp = (
+      _e: MouseEvent,
+      _pt: { x: number; y: number }
+   ) => {};
 
    const finishPolygonDraw = () => {
       if (polygonPoints.value.length < 3) return;
@@ -1465,19 +1669,28 @@ export function useAnnotationEditor() {
    };
 
    // Freehand
-   const handleFreehandMouseDown = (e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleFreehandMouseDown = (
+      e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       e.stopPropagation();
       drawing.value = true;
       freehandPoints.value = [pt];
    };
 
-   const handleFreehandMouseMove = (_e: MouseEvent, pt: { x: number; y: number }) => {
+   const handleFreehandMouseMove = (
+      _e: MouseEvent,
+      pt: { x: number; y: number }
+   ) => {
       if (!drawing.value) return;
       freehandPoints.value.push(pt);
       requestRender();
    };
 
-   const handleFreehandMouseUp = (_e: MouseEvent, _pt: { x: number; y: number }) => {
+   const handleFreehandMouseUp = (
+      _e: MouseEvent,
+      _pt: { x: number; y: number }
+   ) => {
       if (!drawing.value) return;
       drawing.value = false;
       finishFreehandDraw();
@@ -1486,7 +1699,9 @@ export function useAnnotationEditor() {
    const finishFreehandDraw = () => {
       if (freehandPoints.value.length < 2) return;
 
-      const d = freehandPoints.value.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+      const d = freehandPoints.value
+         .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+         .join(' ');
 
       const annotation: Annotation = {
          id: String(nextId.value++),
@@ -1552,10 +1767,14 @@ export function useAnnotationEditor() {
    };
 
    const renderPreviewCircle = () => {
-      if (!ctx.value || !circleCenter.value || circleRadius.value === null) return;
+      if (!ctx.value || !circleCenter.value || circleRadius.value === null)
+         return;
 
       const center = getScreenPoint(circleCenter.value);
-      const radiusPt = getScreenPoint({ x: circleCenter.value.x + circleRadius.value, y: circleCenter.value.y });
+      const radiusPt = getScreenPoint({
+         x: circleCenter.value.x + circleRadius.value,
+         y: circleCenter.value.y,
+      });
       const radius = Math.abs(radiusPt.x - center.x);
 
       ctx.value.beginPath();
@@ -1564,7 +1783,13 @@ export function useAnnotationEditor() {
    };
 
    const renderPreviewRect = () => {
-      if (!ctx.value || !rectStart.value || rectWidth.value === null || rectHeight.value === null) return;
+      if (
+         !ctx.value ||
+         !rectStart.value ||
+         rectWidth.value === null ||
+         rectHeight.value === null
+      )
+         return;
 
       const startScreen = getScreenPoint(rectStart.value);
       const endScreen = getScreenPoint({
@@ -1583,17 +1808,37 @@ export function useAnnotationEditor() {
    };
 
    const renderPreviewEllipse = () => {
-      if (!ctx.value || !ellipseCenter.value || ellipseRadiusX.value === null || ellipseRadiusY.value === null) return;
+      if (
+         !ctx.value ||
+         !ellipseCenter.value ||
+         ellipseRadiusX.value === null ||
+         ellipseRadiusY.value === null
+      )
+         return;
 
       const centerScreen = getScreenPoint(ellipseCenter.value);
-      const rxScreen = getScreenPoint({ x: ellipseCenter.value.x + ellipseRadiusX.value, y: ellipseCenter.value.y });
-      const ryScreen = getScreenPoint({ x: ellipseCenter.value.x, y: ellipseCenter.value.y + ellipseRadiusY.value });
+      const rxScreen = getScreenPoint({
+         x: ellipseCenter.value.x + ellipseRadiusX.value,
+         y: ellipseCenter.value.y,
+      });
+      const ryScreen = getScreenPoint({
+         x: ellipseCenter.value.x,
+         y: ellipseCenter.value.y + ellipseRadiusY.value,
+      });
 
       const rx = Math.abs(rxScreen.x - centerScreen.x);
       const ry = Math.abs(ryScreen.y - centerScreen.y);
 
       ctx.value.beginPath();
-      ctx.value.ellipse(centerScreen.x, centerScreen.y, rx, ry, 0, 0, Math.PI * 2);
+      ctx.value.ellipse(
+         centerScreen.x,
+         centerScreen.y,
+         rx,
+         ry,
+         0,
+         0,
+         Math.PI * 2
+      );
       ctx.value.stroke();
    };
 
@@ -1702,7 +1947,10 @@ export function useAnnotationEditor() {
 
       const params = ann.params as CircleParams;
       const center = getScreenPoint({ x: params.cx, y: params.cy });
-      const radiusPt = getScreenPoint({ x: params.cx + params.r, y: params.cy });
+      const radiusPt = getScreenPoint({
+         x: params.cx + params.r,
+         y: params.cy,
+      });
       const radius = Math.abs(radiusPt.x - center.x);
 
       ctx.value.beginPath();
@@ -1722,8 +1970,14 @@ export function useAnnotationEditor() {
 
       const params = ann.params as EllipseParams;
       const center = getScreenPoint({ x: params.cx, y: params.cy });
-      const rxScreen = getScreenPoint({ x: params.cx + params.rx, y: params.cy });
-      const ryScreen = getScreenPoint({ x: params.cx, y: params.cy + params.ry });
+      const rxScreen = getScreenPoint({
+         x: params.cx + params.rx,
+         y: params.cy,
+      });
+      const ryScreen = getScreenPoint({
+         x: params.cx,
+         y: params.cy + params.ry,
+      });
 
       const rx = Math.abs(rxScreen.x - center.x);
       const ry = Math.abs(ryScreen.y - center.y);
@@ -1745,7 +1999,10 @@ export function useAnnotationEditor() {
 
       const params = ann.params as RectParams;
       const start = getScreenPoint({ x: params.x, y: params.y });
-      const end = getScreenPoint({ x: params.x + params.width, y: params.y + params.height });
+      const end = getScreenPoint({
+         x: params.x + params.width,
+         y: params.y + params.height,
+      });
 
       const x = start.x;
       const y = start.y;
@@ -1769,7 +2026,10 @@ export function useAnnotationEditor() {
 
       const params = ann.params as SquareParams;
       const start = getScreenPoint({ x: params.x, y: params.y });
-      const end = getScreenPoint({ x: params.x + params.side, y: params.y + params.side });
+      const end = getScreenPoint({
+         x: params.x + params.side,
+         y: params.y + params.side,
+      });
 
       const x = start.x;
       const y = start.y;
@@ -1843,7 +2103,9 @@ export function useAnnotationEditor() {
       controlPoints.value = [];
       if (!movingAnnotationId.value) return;
 
-      const annotation = annotations.value.find((a) => a.id === movingAnnotationId.value);
+      const annotation = annotations.value.find(
+         (a) => a.id === movingAnnotationId.value
+      );
       if (!annotation) return;
 
       const params = annotation.params as any;
@@ -1864,28 +2126,69 @@ export function useAnnotationEditor() {
             );
             break;
          case 'ellipse':
-            controlPoints.value.push({ x: params.cx + params.rx, y: params.cy + params.ry, type: 'scale' });
+            controlPoints.value.push({
+               x: params.cx + params.rx,
+               y: params.cy + params.ry,
+               type: 'scale',
+            });
             break;
          case 'rect':
             controlPoints.value.push(
                { x: params.x, y: params.y, type: 'corner', index: 0 },
-               { x: params.x + params.width, y: params.y, type: 'corner', index: 1 },
-               { x: params.x + params.width, y: params.y + params.height, type: 'corner', index: 2 },
-               { x: params.x, y: params.y + params.height, type: 'corner', index: 3 }
+               {
+                  x: params.x + params.width,
+                  y: params.y,
+                  type: 'corner',
+                  index: 1,
+               },
+               {
+                  x: params.x + params.width,
+                  y: params.y + params.height,
+                  type: 'corner',
+                  index: 2,
+               },
+               {
+                  x: params.x,
+                  y: params.y + params.height,
+                  type: 'corner',
+                  index: 3,
+               }
             );
             break;
          case 'square':
             controlPoints.value.push(
                { x: params.x, y: params.y, type: 'corner', index: 0 },
-               { x: params.x + params.side, y: params.y, type: 'corner', index: 1 },
-               { x: params.x + params.side, y: params.y + params.side, type: 'corner', index: 2 },
-               { x: params.x, y: params.y + params.side, type: 'corner', index: 3 }
+               {
+                  x: params.x + params.side,
+                  y: params.y,
+                  type: 'corner',
+                  index: 1,
+               },
+               {
+                  x: params.x + params.side,
+                  y: params.y + params.side,
+                  type: 'corner',
+                  index: 2,
+               },
+               {
+                  x: params.x,
+                  y: params.y + params.side,
+                  type: 'corner',
+                  index: 3,
+               }
             );
             break;
          case 'polygon':
-            params.points.forEach((point: { x: number; y: number }, index: number) => {
-               controlPoints.value.push({ x: point.x, y: point.y, type: 'vertex', index });
-            });
+            params.points.forEach(
+               (point: { x: number; y: number }, index: number) => {
+                  controlPoints.value.push({
+                     x: point.x,
+                     y: point.y,
+                     type: 'vertex',
+                     index,
+                  });
+               }
+            );
             break;
          case 'marker':
          case 'freehand':
@@ -1896,7 +2199,9 @@ export function useAnnotationEditor() {
    const renderControlPoints = () => {
       if (!ctx.value || !movingAnnotationId.value) return;
 
-      const annotation = annotations.value.find((a) => a.id === movingAnnotationId.value);
+      const annotation = annotations.value.find(
+         (a) => a.id === movingAnnotationId.value
+      );
       if (!annotation) return;
 
       const params = annotation.params as any;
@@ -1904,7 +2209,10 @@ export function useAnnotationEditor() {
 
       switch (annotation.type) {
          case 'line':
-            points = [{ x: params.x1, y: params.y1 }, { x: params.x2, y: params.y2 }];
+            points = [
+               { x: params.x1, y: params.y1 },
+               { x: params.x2, y: params.y2 },
+            ];
             break;
          case 'circle':
             points = [
@@ -1934,7 +2242,10 @@ export function useAnnotationEditor() {
             ];
             break;
          case 'polygon':
-            points = params.points.map((p: { x: number; y: number }) => ({ x: p.x, y: p.y }));
+            points = params.points.map((p: { x: number; y: number }) => ({
+               x: p.x,
+               y: p.y,
+            }));
             break;
          case 'marker':
          case 'freehand':
@@ -2060,7 +2371,10 @@ export function useAnnotationEditor() {
          }
          case 'circle': {
             const center = getScreenPoint({ x: params.cx, y: params.cy });
-            const radiusPt = getScreenPoint({ x: params.cx + params.r, y: params.cy });
+            const radiusPt = getScreenPoint({
+               x: params.cx + params.r,
+               y: params.cy,
+            });
             const radius = Math.abs(radiusPt.x - center.x);
             minX = center.x - radius + offsetX;
             minY = center.y - radius + offsetY;
@@ -2070,8 +2384,14 @@ export function useAnnotationEditor() {
          }
          case 'ellipse': {
             const center = getScreenPoint({ x: params.cx, y: params.cy });
-            const rxScreen = getScreenPoint({ x: params.cx + params.rx, y: params.cy });
-            const ryScreen = getScreenPoint({ x: params.cx, y: params.cy + params.ry });
+            const rxScreen = getScreenPoint({
+               x: params.cx + params.rx,
+               y: params.cy,
+            });
+            const ryScreen = getScreenPoint({
+               x: params.cx,
+               y: params.cy + params.ry,
+            });
             const rx = Math.abs(rxScreen.x - center.x);
             const ry = Math.abs(ryScreen.y - center.y);
             minX = center.x - rx + offsetX;
@@ -2084,11 +2404,16 @@ export function useAnnotationEditor() {
          case 'square': {
             const xVal = params.x;
             const yVal = params.y;
-            const widthVal = params.width !== undefined ? params.width : params.side;
-            const heightVal = params.height !== undefined ? params.height : params.side;
+            const widthVal =
+               params.width !== undefined ? params.width : params.side;
+            const heightVal =
+               params.height !== undefined ? params.height : params.side;
 
             const start = getScreenPoint({ x: xVal, y: yVal });
-            const end = getScreenPoint({ x: xVal + widthVal, y: yVal + heightVal });
+            const end = getScreenPoint({
+               x: xVal + widthVal,
+               y: yVal + heightVal,
+            });
 
             minX = Math.min(start.x, end.x) + offsetX;
             minY = Math.min(start.y, end.y) + offsetY;
@@ -2261,8 +2586,10 @@ export function useAnnotationEditor() {
 
    const showAnnotationPopupForPolygon = (annotation: Annotation) => {
       const params = annotation.params as PolygonParams;
-      const centerX = params.points.reduce((sum, p) => sum + p.x, 0) / params.points.length;
-      const centerY = params.points.reduce((sum, p) => sum + p.y, 0) / params.points.length;
+      const centerX =
+         params.points.reduce((sum, p) => sum + p.x, 0) / params.points.length;
+      const centerY =
+         params.points.reduce((sum, p) => sum + p.y, 0) / params.points.length;
 
       const centerViewportPt = getViewportPoint({ x: centerX, y: centerY });
 
@@ -2293,8 +2620,10 @@ export function useAnnotationEditor() {
 
    const showAnnotationPopupForFreehand = (annotation: Annotation) => {
       const params = annotation.params as FreehandParams;
-      const centerX = params.points.reduce((sum, p) => sum + p.x, 0) / params.points.length;
-      const centerY = params.points.reduce((sum, p) => sum + p.y, 0) / params.points.length;
+      const centerX =
+         params.points.reduce((sum, p) => sum + p.x, 0) / params.points.length;
+      const centerY =
+         params.points.reduce((sum, p) => sum + p.y, 0) / params.points.length;
 
       const centerViewportPt = getViewportPoint({ x: centerX, y: centerY });
 
